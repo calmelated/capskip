@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>國中小跨年級能力評測與跳級診斷系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Radar Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* 注音 (Bopomofo) rendering for lower-elementary questions.
+           Each character sits in a two-row cell: 注音 on top, 漢字 below, both
+           centred — so columns line up exactly like a 注音課本 grid instead of
+           floating <ruby> annotations with ad-hoc spacing.
+           區塊尺寸全部 MEASURED at runtime by measureZhuyinWidth():
+           - cell WIDTH  (--zy-cell): scan the widest 注音 syllable (e.g. ㄕㄤˋ);
+           - 注音 ROW HEIGHT (--zy-row): fixed px line box sized to the font's
+             real glyph metrics, tone marks (ˊˇˋ˙) fully inside, no clipping.
+           先看注音需要多寬多高，再決定文字格的寬與高。 */
+        .zy-line { line-height: 3.6; }   /* 行距 = cell約2.9字級 + 舒適餘量，捲行不互撞 */
+        .zy {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            vertical-align: bottom;
+            white-space: nowrap;
+            /* every character cell (漢字/數字/標點) uses the SAME measured width,
+               so the columns form an even grid like a 注音課本. */
+            width: var(--zy-cell, 3.25em);
+            margin: 0;
+        }
+        .zy-top {
+            /* 注音列：盒高 = --zy-row（measureZhuyinWidth 量測字體
+               ascent+descent 後換算出的行盒需求）；
+               行盒 = font-size（line-height:1），字形溢出行盒的部分由
+               上下 padding 吸收：
+               - padding-top 0.2em → 聲符(ˊˇˋ˙)頂端絕不裁切；
+               - padding-bottom 0.5em → 與漢字列的淨空 ≈10px @16px 字級，
+                 兩列完全分離、上排下排都可讀不黏。 */
+            /* 注音列：盒高 = --zy-row = 量測(ascent+descent) + 可讀餘裕；
+               兩排淨空 ≈1.18×字級（F16 下 18.8px），聲符與漢字完全分離。 */
+            height: var(--zy-row, auto);
+            font-size: 0.75em;           /* 注音字級 = 0.75×格字級（實測公式同步） */
+            color: #4f46e5;
+            font-weight: 700;
+            line-height: 1;
+            padding-top: 0.35em;         /* 相對自己 0.75em 字級：聲符頂端餘裕 +5.5px @F16 */
+            padding-bottom: 0.45em;      /* 與漢字列淨空 ≈+10px，兩列分離可讀 */
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+        .zy-base {
+            /* 漢字行盒 1.15×字級：CJK 墨跡完全入盒，不溢到上列淨空 */
+            line-height: 1.15;
+        }
+        /* original spaces between words use the SAME width as one cell */
+        .zy-gap { display: inline-block; width: var(--zy-cell, 3.25em); }
+
+        /* hidden probe to MEASURE 注音 width/height; family+weight must match
+           .zy-top so metrics are representative (font-size pinned inline at 16px) */
+        .zy-measure-probe {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            visibility: hidden;
+            pointer-events: none;
+            font-size: 0.75em;
+            font-weight: 700;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+                    <i class="fa-solid font-bold fa-graduation-cap text-2xl text-yellow-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">跨年級能力評測</h1>
+                    <p class="text-xs text-indigo-200">跳級與資優潛能診斷系統（國小一年級 ～ 國中九年級）</p>
+                </div>
+            </div>
+
+            <!-- Current Student Info Selector Bar -->
+            <div class="flex items-center space-x-3 bg-indigo-800/80 px-3 py-1.5 rounded-xl border border-indigo-500/30">
+                <i class="fa-solid fa-user-graduate text-indigo-300"></i>
+                <div class="flex items-center space-x-2 text-sm">
+                    <span class="text-indigo-200 hidden sm:inline">考生：</span>
+                    <select id="studentSwitchSelect" onchange="switchCandidate()" title="切換已登入的考生" class="bg-indigo-900/80 text-white font-medium px-2 py-1 rounded text-xs border border-indigo-600 focus:outline-none focus:border-yellow-400">
+                        <option value="">-- 切換考生 --</option>
+                    </select>
+                    <input type="text" id="studentNameInput" value="" placeholder="姓名" class="bg-indigo-900/80 text-white font-medium px-2 py-1 rounded text-xs w-20 border border-indigo-600 focus:outline-none focus:border-yellow-400 placeholder-indigo-400" onchange="saveStudentProfile()">
+
+                    <select id="studentGradeSelect" class="bg-indigo-900/80 text-white font-medium px-2 py-1 rounded text-xs border border-indigo-600 focus:outline-none focus:border-yellow-400" onchange="saveStudentProfile()">
+                    </select>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Navigation Tabs -->
+        <div class="flex space-x-2 border-b border-slate-200 mb-6">
+            <button id="tab-dashboard-btn" onclick="switchTab('dashboard')" class="px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-indigo-600 text-indigo-600 bg-white shadow-sm flex items-center space-x-2">
+                <i class="fa-solid fa-gauge-high"></i>
+                <span>測驗大廳與分析</span>
+            </button>
+            <button id="tab-records-btn" onclick="switchTab('records')" class="px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>測驗歷史紀錄與刪除管理</span>
+            </button>
+        </div>
+
+        <!-- DASHBOARD TAB CONTENT -->
+        <div id="tab-dashboard" class="space-y-6">
+            
+            <!-- Student Status Summary Banner -->
+            <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 opacity-10 text-white">
+                    <i class="fa-solid fa-brain text-9xl"></i>
+                </div>
+                <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                    <div class="md:col-span-2 space-y-2">
+                        <div class="inline-flex items-center space-x-2 bg-yellow-400/20 border border-yellow-400/30 text-yellow-300 px-3 py-1 rounded-full text-xs font-semibold">
+                            <i class="fa-solid fa-star"></i>
+                            <span id="targetGradeTag">當前跳級檢測目標：五年級與六年級核心概念</span>
+                        </div>
+                        <h2 class="text-2xl font-bold"><span id="displayName">考生</span> 同學的能力診斷大廳</h2>
+                        <p class="text-sm text-slate-300">
+                            測驗規範：<span id="specText">題數與時限依年級、科目與題目難度自動調整</span>。<br>
+                            <span class="text-indigo-200">考完單科後可立即交卷，查看該科分數、PR值與詳細解答。</span>
+                        </p>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center border border-white/10">
+                        <div class="text-xs text-indigo-200 mb-1">平均綜合表現評估</div>
+                        <div class="text-3xl font-extrabold text-yellow-300" id="overallPRText">PR --</div>
+                        <div class="text-xs text-slate-300 mt-1" id="overallStatusText">尚未完成任何學科測驗</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Cards Grid -->
+            <div>
+                <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open text-indigo-600"></i>
+                    <span>跨年級能力測驗科目 (單科獨立對答案)</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="subjectsGrid">
+                    <!-- Subject cards inserted via JS -->
+                </div>
+            </div>
+
+            <!-- Radar Chart & Recommendation Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Radar Chart Card -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col items-center justify-center">
+                    <h4 class="text-sm font-bold text-slate-700 mb-3 text-center flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-pie text-indigo-600"></i>
+                        <span>五大學科能力雷達圖</span>
+                    </h4>
+                    <div class="w-full h-64 relative flex items-center justify-center">
+                        <canvas id="radarChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Ability Analysis Report -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center space-x-2">
+                            <i class="fa-solid fa-award text-indigo-600"></i>
+                            <span>資優跳級潛能評估分析報告</span>
+                        </h4>
+                        <div class="space-y-3 text-sm text-slate-600" id="diagnosticReportContent">
+                            <p class="bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed">
+                                請選擇上方任一學科開始測驗。完成單一學科後，系統會自動評算答對率、常態對照 PR 值，並判斷該學生是否具備資優前 10%（PR 90 以上）的跨級跳級學習實力。
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                        <span>評測機制：依年級自動配題與計時</span>
+                        <span id="footerTimeSpec">標準時限：依題型難度自動計算</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RECORDS TAB CONTENT -->
+        <div id="tab-records" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-200 mb-4 gap-3">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">歷次測驗成績與評分紀錄</h3>
+                        <p class="text-xs text-slate-500 mt-1">您可以隨時檢視試卷、檢討試題或刪除測試紀錄；重要紀錄可匯出 JSON 備份跨裝置保存。</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <input type="file" id="importBackupInput" accept=".json,application/json" class="hidden" onchange="importBackupFile(this)">
+                        <button onclick="exportBackupData()" class="px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-file-export"></i>
+                            <span>匯出備份 (JSON)</span>
+                        </button>
+                        <button onclick="triggerImportBackup()" class="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-file-import"></i>
+                            <span>匯入備份</span>
+                        </button>
+                        <button onclick="clearAllRecords()" class="px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>清除所有紀錄</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold text-xs uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4">測驗時間</th>
+                                <th class="py-3 px-4">學生姓名</th>
+                                <th class="py-3 px-4">原年級</th>
+                                <th class="py-3 px-4">測驗學科</th>
+                                <th class="py-3 px-4">得分 (滿分100)</th>
+                                <th class="py-3 px-4">PR對照</th>
+                                <th class="py-3 px-4">跳級診斷</th>
+                                <th class="py-3 px-4 text-center">檢視試卷</th>
+                                <th class="py-3 px-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsTableBody" class="divide-y divide-slate-100">
+                            <!-- Dynamic records rows inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- EXAM MODAL (FULL SCREEN INTERACTIVE EXAM) -->
+    <div id="examModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex flex-col">
+        <!-- Exam Header -->
+        <div class="bg-indigo-900 text-white px-6 py-3 flex items-center justify-between border-b border-indigo-700 shadow-md">
+            <div class="flex items-center space-x-3">
+                <span class="bg-yellow-400 text-indigo-950 font-bold px-2.5 py-1 rounded-lg text-xs" id="examSubjectBadge">國語科</span>
+                <h2 class="font-bold text-base" id="examTitle">跨年級能力評測</h2>
+                <span class="text-xs text-indigo-300 hidden sm:inline" id="examInfoText">(題數與配分依年級自動調整)</span>
+            </div>
+
+            <!-- Timer & Actions -->
+            <div class="flex items-center space-x-4">
+                <div class="bg-indigo-950/80 border border-indigo-600 px-3 py-1 rounded-xl flex items-center space-x-2 text-yellow-300">
+                    <i class="fa-solid fa-clock animate-pulse"></i>
+                    <span class="font-mono text-base font-bold" id="timerDisplay">30:00</span>
+                </div>
+                <button onclick="confirmSubmitExam()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-1.5 rounded-xl text-xs shadow-md transition-all flex items-center space-x-1">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>交卷並看解析</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Exam Main Body -->
+        <div class="flex-grow flex overflow-hidden">
+            <!-- Left Sidebar Question Nav Grid -->
+            <div class="w-64 bg-slate-800 text-slate-200 border-r border-slate-700 p-4 flex flex-col justify-between hidden md:flex">
+                <div class="space-y-3">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                        <span>答題導引卡 (<span id="navTotalText">-</span>題)</span>
+                        <span id="answeredCountText" class="text-indigo-300 font-normal">0/0</span>
+                    </div>
+
+                    <!-- Question Grid -->
+                    <div class="grid grid-cols-5 gap-2 max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar p-1" id="questionNavGrid">
+                        <!-- 40 Buttons generated via JS -->
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="space-y-1.5 pt-3 border-t border-slate-700 text-xs text-slate-400">
+                    <div class="flex items-center space-x-2"><span class="w-3 h-3 bg-slate-700 rounded border border-slate-600"></span><span>未作答</span></div>
+                    <div class="flex items-center space-x-2"><span class="w-3 h-3 bg-indigo-600 rounded"></span><span>已作答</span></div>
+                    <div class="flex items-center space-x-2"><span class="w-3 h-3 bg-amber-500 rounded"></span><span>已標記待複習</span></div>
+                </div>
+            </div>
+
+            <!-- Right Question Content View -->
+            <div class="flex-grow bg-slate-100 p-4 sm:p-8 overflow-y-auto custom-scrollbar flex flex-col justify-between">
+                
+                <div class="max-w-3xl mx-auto w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 relative">
+                    
+                    <!-- Question Header Tag & Flag -->
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg font-extrabold text-indigo-700">第 <span id="qNumber">1</span> 題</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-200" id="qTypeBadge">是非題</span>
+                        </div>
+                        <button id="flagBtn" onclick="toggleFlagCurrentQuestion()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:border-amber-300 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-bookmark" id="flagIcon"></i>
+                            <span id="flagText">標記本題</span>
+                        </button>
+                    </div>
+
+                    <!-- Question Text -->
+                    <div class="text-base sm:text-lg font-medium text-slate-800 leading-relaxed mb-6" id="qText">
+                        題目載入中...
+                    </div>
+
+                    <!-- Question Options Container -->
+                    <div class="space-y-3" id="qOptionsContainer">
+                        <!-- Options generated dynamically -->
+                    </div>
+
+                </div>
+
+                <!-- Question Navigation Control Bar -->
+                <div class="max-w-3xl mx-auto w-full flex items-center justify-between mt-6">
+                    <button onclick="navigateQuestion(-1)" id="prevQBtn" class="px-5 py-2.5 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:bg-slate-50 shadow-sm transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>上一題</span>
+                    </button>
+                    <span class="text-xs font-medium text-slate-500">提示：多選題可選擇一個或多個選項</span>
+                    <button onclick="navigateQuestion(1)" id="nextQBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-sm transition-all flex items-center space-x-2">
+                        <span>下一題</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULT & EXPLANATION MODAL -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <!-- Result Header -->
+            <div class="bg-indigo-900 text-white px-6 py-4 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold" id="resultModalTitle">單科能力診斷結果與詳細解析</h3>
+                    <p class="text-xs text-indigo-200" id="resultModalSubtitle">跨年級跳級評測報告</p>
+                </div>
+                <button onclick="closeResultModal()" class="text-indigo-200 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Score Summary Cards -->
+            <div class="p-6 bg-slate-50 border-b border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500">測驗得分</div>
+                    <div class="text-2xl font-extrabold text-indigo-600" id="resScore">0</div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500">對照常態 PR 值</div>
+                    <div class="text-2xl font-extrabold text-yellow-600" id="resPR">PR --</div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500">答對題數</div>
+                    <div class="text-2xl font-extrabold text-emerald-600" id="resCorrect">0 / 0</div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500">跳級資優建議</div>
+                    <div class="text-xs font-bold mt-2 px-2 py-1 rounded bg-indigo-50 text-indigo-700" id="resRecommendation">評估中</div>
+                </div>
+            </div>
+
+            <!-- Questions Review List -->
+            <div class="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-4" id="resultQuestionsList">
+                <!-- Detailed question analysis cards -->
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="p-4 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
+                <button onclick="deleteCurrentExamResult()" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold text-xs border border-rose-200 transition-all flex items-center space-x-1">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>刪除此筆測試紀錄 (重新測驗)</span>
+                </button>
+                <button onclick="closeResultModal()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all">
+                    返回大廳
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATTEMPT HISTORY MODAL (all retakes for one student + subject, with the
+         exact questions asked in each past paper) -->
+    <div id="attemptHistoryModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="bg-indigo-900 text-white px-6 py-4 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold" id="attemptHistoryTitle">歷次測驗紀錄</h3>
+                    <p class="text-xs text-indigo-200">每筆紀錄保留當時的完整題目與作答</p>
+                </div>
+                <button onclick="closeAttemptHistory()" class="text-indigo-200 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="flex-grow p-6 overflow-y-auto custom-scrollbar" id="attemptHistoryBody">
+                <!-- History attempt cards injected via JS -->
+            </div>
+            <div class="p-4 bg-slate-100 border-t border-slate-200 flex justify-end">
+                <button onclick="closeAttemptHistory()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM DIALOG MODAL (Replaces alert & confirm) -->
+    <div id="customDialogModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4 border border-slate-100">
+            <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-xl" id="dialogIcon">
+                <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-800" id="dialogTitle">系統提示</h3>
+            <p class="text-xs text-slate-600 leading-relaxed" id="dialogMessage">內容訊息</p>
+            <div class="flex items-center justify-center space-x-3 pt-2" id="dialogButtons">
+                <!-- Dynamic buttons inserted via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Bank (auto-generated by build-itembank.mjs) -->
+    <script src="math-templates.js"></script>
+    <script src="item-bank.js"></script>
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // ==========================================================
+        //  Global Application State
+        // ==========================================================
+        let currentStudent = {
+            name: "",
+            grade: "4",
+        };
+        let candidates = [];   // registered 考生名冊 {name,grade,lastAt}，供切換
+
+        let examRecords = []; // Stores past test results
+        let currentExam = null; // Active exam state
+        let examTimerInterval = null;
+        let radarChartInstance = null;
+
+        // Grade range: 1-6 elementary (國小), 7-9 junior high (國中)
+        const MIN_GRADE = 1;
+        const MAX_GRADE = 9;
+
+        // Subject Configurations
+        const subjectsConfig = [
+            { id: 'chinese', name: '國語文', icon: 'fa-book', color: 'from-amber-500 to-orange-600', weight: 1.00 },
+            { id: 'math', name: '數學科', icon: 'fa-calculator', color: 'from-blue-500 to-indigo-600', weight: 0.90 },
+            { id: 'science', name: '自然科學', icon: 'fa-flask', color: 'from-emerald-500 to-teal-600', weight: 1.00 },
+            { id: 'social', name: '社會科', icon: 'fa-earth-east', color: 'from-purple-500 to-pink-600', weight: 0.95 },
+            { id: 'english', name: '英語科', icon: 'fa-language', color: 'from-rose-500 to-red-600', weight: 0.90 }
+        ];
+
+        // 科目依年級「慢慢增加」的分段表：越往高年級分得越細。
+        // 規則以「目標年級」（現年級+1，即檢測要跳入的年級）判定。
+        const SUBJECT_TIERS = [
+            { subjects: ['chinese', 'math'],       from: 2  },  // 低年級 1-2：2 科
+            { subjects: ['science', 'english'],    from: 4  },  // 中年級 3-4：+2 科
+            { subjects: ['social'],                from: 6  },  // 高年級 5-6：+綜合社會科
+            { subjects: ['scilife', 'scimatter', 'sochist', 'socciv'], from: 8 } // 國中（現年級 7-9→目標 8-10）：分科
+        ];
+        // 國中起（目標年級 8+＝現年級 7-9），自然/社會兩個綜合科被四個細科取代
+        const SPLIT_FROM = 8;
+        const SPLIT_SUBJECTS = [
+            { id: 'scilife',   name: '生命科學',   icon: 'fa-leaf',        color: 'from-emerald-500 to-green-600',  weight: 1.00, domain: 'life',    of: 'science' },
+            { id: 'scimatter', name: '物質科學',   icon: 'fa-atom',        color: 'from-sky-500 to-cyan-600',       weight: 0.95, domain: 'matter',  of: 'science' },
+            { id: 'sochist',   name: '歷史地理',   icon: 'fa-landmark',    color: 'from-purple-500 to-violet-600',  weight: 0.95, domain: 'histgeo', of: 'social' },
+            { id: 'socciv',    name: '公民與社會', icon: 'fa-scale-balanced', color: 'from-indigo-500 to-blue-600',  weight: 0.95, domain: 'civics',  of: 'social' }
+        ];
+        function splitOf(subjectId) { return SPLIT_SUBJECTS.find(s => s.id === subjectId) || null; }
+        function subjectMeta(subjectId) {
+            return subjectsConfig.find(s => s.id === subjectId) || splitOf(subjectId);
+        }
+        // 在目標年級 t 已開放的科目 id（比 t 高的門檻=t+1 起才開放）
+        function openSubjectIds(t) {
+            const out = new Set();
+            SUBJECT_TIERS.forEach(tier => { if (t >= tier.from) tier.subjects.forEach(id => out.add(id)); });
+            return out;
+        }
+        function allSubjectEntries() { return subjectsConfig.concat(SPLIT_SUBJECTS); }
+        function subjectsForGrade(t) {
+            const open = openSubjectIds(t);
+            const dropBase = t >= SPLIT_FROM;   // 國中：綜合科由分科取代
+            return subjectsConfig
+                .filter(s => open.has(s.id) && !(dropBase && (s.id === 'science' || s.id === 'social')))
+                .concat(SPLIT_SUBJECTS.filter(s => open.has(s.id)));
+        }
+        // 科目首次開放的目標年級；找不到 tier 時=1（保證永遠開放，不誤鎖）
+        function subjectOpenFrom(subjectId) {
+            const tier = SUBJECT_TIERS.find(t => t.subjects.includes(subjectId));
+            return tier ? tier.from : 1;
+        }
+        function currentTargetGrade() {
+            return Math.min(MAX_GRADE + 1, (parseInt(currentStudent.grade) || 4) + 1);
+        }
+
+        // Seconds allowed per question, by type
+        const TIME_BASE = { tf: 25, single: 40, multiple: 70 };
+        // Difficulty multiplier
+        const DIFF_WEIGHT = { basic: 1.00, pro: 1.15, challenge: 1.30 };
+        const DIFF_LABEL = { basic: '基礎', pro: '進階', challenge: '挑戰' };
+
+        /* 先量注音寬度：字型載入(load)與主初始化(onload)各實測一次 */
+        if (typeof window.addEventListener === 'function') {
+            window.addEventListener('load', () => measureZhuyinWidth(false));
+        }
+
+        window.onload = function() {
+            measureZhuyinWidth(true);   // 字型確定載入後，重新實測最寬注音
+            buildGradeSelect();
+            loadStudentProfile();
+            loadCandidates();
+            loadRecordsFromStorage();
+            renderDashboard();
+            initRadarChart();
+        };
+
+        // ----------------------------------------------------------
+        //  Adaptive paper blueprint: question count + type/difficulty mix
+        //  Keyed by the TARGET grade (grade the student is being tested for).
+        // ----------------------------------------------------------
+        function buildGradeSelect() {
+            const sel = document.getElementById('studentGradeSelect');
+            sel.innerHTML = '';
+            for (let g = MIN_GRADE; g <= MAX_GRADE; g++) {
+                const opt = document.createElement('option');
+                opt.value = String(g);
+                const stage = g <= 6 ? '國小' : '國中';
+                opt.textContent = `${stage}${g}年級 (檢測升 ${g + 1} 年級)`;
+                sel.appendChild(opt);
+            }
+            const saved = (() => { try { return JSON.parse(localStorage.getItem('capskip_student_profile') || 'null'); } catch(e) { return null; } })();
+            sel.value = (saved && saved.grade && +saved.grade >= MIN_GRADE && +saved.grade <= MAX_GRADE) ? String(saved.grade) : '4';
+        }
+
+        function calcPaperBlueprint(targetGrade) {
+            const g = targetGrade;
+            if (g <= 2)  return { total: 18, tf: 6, single: 6, multiple: 6,  diff: { basic: 0.60, pro: 0.30, challenge: 0.10 } };
+            if (g === 3) return { total: 22, tf: 8, single: 6, multiple: 8,  diff: { basic: 0.55, pro: 0.35, challenge: 0.10 } };
+            if (g <= 5)  return { total: 26, tf: 8, single: 8, multiple: 10, diff: { basic: 0.45, pro: 0.40, challenge: 0.15 } };
+            if (g <= 7)  return { total: 30, tf: 8, single: 10, multiple: 12, diff: { basic: 0.40, pro: 0.40, challenge: 0.20 } };
+            return         { total: 32, tf: 8, single: 12, multiple: 12, diff: { basic: 0.30, pro: 0.45, challenge: 0.25 } };
+        }
+
+        // 國中分科試卷（生命科學/物質科學/歷史地理/公民與社會）：在同期綜合科
+        // 藍圖上減量——每個細科只抽半張卷（-16 題：是非 -4、單選 -6、多選 -6），
+        // 因為題庫以「綜合科 + dom 標記」保存，先分流再抽題，量池深度允許半卷。
+        function splitPaperBlueprint(baseBp) {
+            return {
+                total: baseBp.total - 16, tf: baseBp.tf - 4, single: baseBp.single - 6,
+                multiple: baseBp.multiple - 6, diff: baseBp.diff
+            };
+        }
+
+        // Distribute `count` items across difficulty tiers using the blueprint ratios.
+        function diffQuota(count, ratios) {
+            const keys = ['basic', 'pro', 'challenge'];
+            const raw = keys.map(k => count * (ratios[k] || 0));
+            const out = raw.map(v => Math.floor(v));
+            let used = out.reduce((a, b) => a + b, 0);
+            // hand out remainders to the largest fractional parts
+            const fracs = raw.map((v, i) => ({ i, f: v - Math.floor(v) })).sort((a, b) => b.f - a.f);
+            let p = 0;
+            while (used < count && fracs.length) {
+                out[fracs[p % fracs.length].i]++;
+                used++; p++;
+            }
+            // If a tier has no items, push its quota to the nearest available tier
+            return { basic: out[0], pro: out[1], challenge: out[2] };
+        }
+
+        // Lightweight synthetic question list used only to estimate a paper's
+        // time limit for the dashboard preview (does not touch the item pool).
+        function previewQuestions(subjectId, targetGrade, bp) {
+            const mix = { basic: bp.diff.basic, pro: bp.diff.pro, challenge: bp.diff.challenge };
+            const out = [];
+            const add = (type, n) => {
+                for (let i = 0; i < n; i++) {
+                    // Rotate difficulty by the blueprint ratio
+                    const r = i / Math.max(1, n);
+                    let d = 'basic';
+                    if (r >= mix.basic + mix.pro) d = 'challenge';
+                    else if (r >= mix.basic) d = 'pro';
+                    out.push({ type, diff: d });
+                }
+            };
+            add('tf', bp.tf); add('single', bp.single); add('multiple', bp.multiple);
+            return out;
+        }
+
+        // ----------------------------------------------------------
+        //  Adaptive time limit (seconds)
+        // ----------------------------------------------------------
+        function calcTimeLimit(subjectId, questions) {
+            const sub = subjectMeta(subjectId);
+            const subjW = sub ? sub.weight : 1.0;
+            let secs = 0;
+            questions.forEach(q => {
+                secs += (TIME_BASE[q.type] || 40) * subjW * (DIFF_WEIGHT[q.diff] || 1);
+            });
+            const minutes = Math.ceil(secs / 60);
+            return Math.min(60, Math.max(10, minutes)) * 60;
+        }
+
+        // ----------------------------------------------------------
+        //  Seeded RNG so a paper is reproducible when needed,
+        //  but different on every attempt (seed = time + attempt counter)
+        // ----------------------------------------------------------
+        function makeRng(seed) {
+            let s = seed >>> 0;
+            return function() {
+                s ^= s << 13; s >>>= 0;
+                s ^= s >> 17;
+                s ^= s << 5;  s >>>= 0;
+                return s / 4294967296;
+            };
+        }
+        function shuffle(arr, rng) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(rng() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        // ----------------------------------------------------------
+        //  Used-item memory: avoids drawing the same items every attempt
+        // ----------------------------------------------------------
+        const USED_KEY = 'capskip_used_items';
+        const USED_CAP = 600; // keep the most recent N item ids per pool key
+        let usedItems = {};
+
+        function loadUsedItems() {
+            try { usedItems = JSON.parse(localStorage.getItem(USED_KEY) || '{}') || {}; } catch(e) { usedItems = {}; }
+        }
+        function saveUsedItems() {
+            // LRU-cap every pool
+            Object.keys(usedItems).forEach(k => {
+                if (usedItems[k].length > USED_CAP) usedItems[k] = usedItems[k].slice(-USED_CAP);
+            });
+            try { localStorage.setItem(USED_KEY, JSON.stringify(usedItems)); } catch(e) {}
+        }
+
+        // Draw `need` distinct items of `type` for subjectId at targetGrade,
+        // respecting the difficulty quota and avoiding recently used items.
+        function drawItems(subjectId, targetGrade, type, need, quota, rng, domain) {
+            if (need <= 0) return [];
+            let pool = getItemPool(subjectId, targetGrade, type);
+            if (domain) pool = pool.filter(it => it.dom === domain);
+            if (!pool.length) return [];
+
+            const key = `${subjectId}${domain ? '@' + domain : ''}|${targetGrade}|${type}`;
+            const used = usedItems[key] || [];
+            const usedSet = new Set(used);
+
+            // Split pool by difficulty, prefer unseen items
+            const byDiff = { basic: [], pro: [], challenge: [] };
+            pool.forEach(it => { (byDiff[it.diff] || byDiff.basic).push(it); });
+            Object.keys(byDiff).forEach(d => {
+                const fresh = byDiff[d].filter(it => !usedSet.has(it.id));
+                const stale = byDiff[d].filter(it => usedSet.has(it.id));
+                byDiff[d] = shuffle(fresh, rng).concat(shuffle(stale, rng));
+            });
+
+            const taken = [];
+            const takenIds = new Set();
+            const tiers = ['basic', 'pro', 'challenge'];
+
+            // First pass: honour the difficulty quota
+            tiers.forEach(t => {
+                let want = quota[t] || 0;
+                while (want > 0 && byDiff[t].length) {
+                    const it = byDiff[t].shift();
+                    if (takenIds.has(it.id)) continue;
+                    taken.push(it); takenIds.add(it.id); want--;
+                }
+            });
+
+            // Second pass: top up from any remaining item, any difficulty
+            if (taken.length < need) {
+                const rest = shuffle(
+                    tiers.reduce((acc, t) => acc.concat(byDiff[t]), []), rng
+                );
+                for (const it of rest) {
+                    if (taken.length >= need) break;
+                    if (takenIds.has(it.id)) continue;
+                    taken.push(it); takenIds.add(it.id);
+                }
+            }
+
+            // Record usage. The memory is a RECENCY list, not a permanent
+            // ban-list: with parameterised templates the same template drawn
+            // later is a genuinely different question, so we only avoid the
+            // most recently used ones and cycle through the pool.
+            const ids = taken.map(it => it.id);
+            const lp = pool.length;
+            usedItems[key] = (usedItems[key] || []).concat(ids).slice(-Math.max(1, lp - 1));
+            saveUsedItems();
+
+            return shuffle(taken, rng).slice(0, need);
+        }
+
+        // Build a full paper: adaptive count, adaptive type mix, adaptive difficulty
+        function generatePaper(subjectId, studentGrade) {
+            const sp = splitOf(subjectId);
+            const poolSubject = sp ? sp.of : subjectId;   // 分科從綜合科題庫過濾 dom
+            const targetGrade = Math.min(MAX_GRADE + 1, studentGrade + 1); // the grade being tested for
+            const fullBp = calcPaperBlueprint(targetGrade);
+            const bp = sp ? splitPaperBlueprint(fullBp) : fullBp;
+            const rng = makeRng((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
+
+            // 國小一、二年級 (student grade 1-2) 的題目需附注音。
+            // The paper is drawn at the target grade, but the annotation
+            // requirement follows the STUDENT's grade.
+            const needZhuyin = studentGrade <= 2;
+
+            const plan = [
+                { type: 'tf', count: bp.tf },
+                { type: 'single', count: bp.single },
+                { type: 'multiple', count: bp.multiple }
+            ];
+
+            const questions = [];
+            // Template items can independently generate the SAME question (two
+            // different "n is its own factor" templates may both roll n = 70).
+            // Dedupe on the materialised content, not just the template id.
+            const usedVariant = new Set();
+            plan.forEach(({ type, count }) => {
+                if (count <= 0) return;
+                const quota = diffQuota(count, bp.diff);
+                const picked = drawItems(poolSubject, targetGrade, type, count, quota, rng, sp ? sp.domain : null);
+                picked.forEach((it) => {
+                    // Materialise the template with this paper's RNG so the
+                    // numbers, options and answers are fresh every attempt.
+                    // Retry a few times to avoid colliding with a question
+                    // already on this paper.
+                    let m = null, hash = null;
+                    for (let attempt = 0; attempt < 12; attempt++) {
+                        const candidate = materializeItem(it, rng, needZhuyin);
+                        const h = variantHashOf(candidate);
+                        if (!usedVariant.has(h)) { m = candidate; hash = h; break; }
+                        // 是非題 has only two possible texts; once both are on the
+                        // paper there is nothing left to try.
+                        if (it.diff === 'basic' && it.tpl && attempt >= 2) break;
+                    }
+                    if (!m) {
+                        m = materializeItem(it, rng, needZhuyin);
+                        hash = variantHashOf(m);
+                        if (usedVariant.has(hash)) return; // drop the duplicate
+                    }
+                    usedVariant.add(hash);
+                    questions.push({
+                        id: m.id,
+                        tpl: m.tpl,
+                        variantHash: hash,
+                        type: type,
+                        diff: m.diff,
+                        title: m.title,
+                        zhuyin: m.zhuyin || null,
+                        options: m.options,
+                        answer: m.answer,
+                        explanation: m.explanation
+                    });
+                });
+            });
+
+            return { questions, targetGrade, needZhuyin, blueprint: bp };
+        }
+
+        // A cheap fingerprint of a materialised question. Two draws of the same
+        // template with different numbers/order produce different hashes, so the
+        // used-item memory can tell "same template, new question" from a repeat.
+        function variantHashOf(q) {
+            const s = q.title + '|' + q.options.join('|') + '|' + q.answer.join(',');
+            let h = 5381;
+            for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+            return h.toString(36);
+        }
+
+        // Custom Dialog Modal Replacement for alert/confirm
+        function showCustomDialog(title, message, isConfirm = false, onConfirm = null) {
+            document.getElementById('dialogTitle').textContent = title;
+            document.getElementById('dialogMessage').textContent = message;
+            
+            const btnContainer = document.getElementById('dialogButtons');
+            btnContainer.innerHTML = '';
+
+            if (isConfirm) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all';
+                cancelBtn.textContent = '取消';
+                cancelBtn.onclick = () => hideCustomDialog();
+                btnContainer.appendChild(cancelBtn);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm';
+                confirmBtn.textContent = '確定';
+                confirmBtn.onclick = () => {
+                    hideCustomDialog();
+                    if (onConfirm) onConfirm();
+                };
+                btnContainer.appendChild(confirmBtn);
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.className = 'px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm';
+                okBtn.textContent = '我知道了';
+                okBtn.onclick = () => hideCustomDialog();
+                btnContainer.appendChild(okBtn);
+            }
+
+            document.getElementById('customDialogModal').classList.remove('hidden');
+        }
+
+        function hideCustomDialog() {
+            document.getElementById('customDialogModal').classList.add('hidden');
+        }
+
+        // A record belongs to one student by name + grade.
+        function studentKeyOf(rec) {
+            const name = (rec.studentName !== undefined ? rec.studentName : (rec.name || '')) || '未填姓名';
+            return name + '|' + String(rec.grade || '');
+        }
+
+        // All attempts by this student for one subject, newest first.
+        function attemptsFor(subjectId) {
+            return examRecords.filter(r =>
+                r.subjectId === subjectId &&
+                studentKeyOf(r) === studentKeyOf(currentStudent) &&
+                String(r.grade) === String(currentStudent.grade)
+            ); // examRecords is stored newest-first
+        }
+
+        // 大廳卡片上的歷次分數趨勢（由舊到新），inline SVG 折線圖。
+        function scoreTrendHtml(recs) {
+            if (!recs || recs.length < 2) return '';
+            const scores = recs.slice().reverse().map(r => r.score); // oldest first
+            const w = 132, h = 34, pad = 4;
+            const pts = scores.map((s, i) => {
+                const x = pad + (w - 2 * pad) * i / (scores.length - 1);
+                const v = Math.max(0, Math.min(100, s));
+                const y = h - pad - (v / 100) * (h - 2 * pad);
+                return { x, y };
+            });
+            const polyline = pts.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+            const dots = pts.map((p, i) => {
+                const last = (i === pts.length - 1);
+                return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${last ? 3 : 2}" fill="${last ? '#4f46e5' : '#a5b4fc'}"/>`;
+            }).join('');
+            const first = scores[0], lastS = scores[scores.length - 1];
+            const delta = lastS - first;
+            const deltaText = delta > 0 ? `+${delta} ↗` : delta < 0 ? `${delta} ↘` : '±0 →';
+            return `
+                <div class="mt-1.5 flex items-center gap-2">
+                    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="shrink-0" aria-label="歷次分數趨勢">
+                        <polyline fill="none" stroke="#6366f1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${polyline}"></polyline>
+                        ${dots}
+                    </svg>
+                    <span class="text-xs text-slate-500">前 ${first} → ${lastS} 分（${deltaText}，共 ${scores.length} 次）</span>
+                </div>`;
+        }
+
+        // Show one student's full attempt history for a subject, including the
+        // exact questions that were asked in each past paper.
+        function viewAttemptHistory(subjectId) {
+            if (!requireNameBeforeExam()) return;   // 未登入姓名不得看歷次成績
+            const sub = subjectMeta(subjectId);
+            const recs = attemptsFor(subjectId);
+            const wrap = document.getElementById('attemptHistoryBody');
+
+            if (!recs.length) {
+                wrap.innerHTML = '<p class="text-xs text-slate-400">尚無紀錄</p>';
+            } else {
+                // Attempt 1 = oldest … N = newest
+                const chronological = recs.slice().reverse();
+                wrap.innerHTML = chronological.map((r, i) => {
+                    const n = i + 1;
+                    const isLatest = (i === chronological.length - 1);
+                    const tag = isLatest
+                        ? '<span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded">最新一次</span>'
+                        : '<span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded">第 ' + n + ' 次</span>';
+                    const summary = `
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                            ${tag}
+                            <span class="text-slate-500"><i class="fa-regular fa-calendar"></i> ${r.date}</span>
+                            <span class="font-extrabold text-slate-900 text-sm">${r.score} 分</span>
+                            <span class="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-bold">PR ${r.pr}</span>
+                            <span class="text-slate-500">${r.correctCount}/${r.total || r.questions.length} 題</span>
+                            <span class="text-slate-400">時限 ${Math.round((r.timeLimit || 0) / 60)} 分鐘</span>
+                        </div>`;
+                    // The exact questions from THAT attempt (not regenerated).
+                    const questions = (r.questions || []).map((q, qi) => {
+                        const ua = r.userAnswers ? r.userAnswers[qi] : null;
+                        let isCorrect = false;
+                        if (q.type === 'multiple') {
+                            const a = Array.isArray(ua) ? [...ua].sort().join(',') : '';
+                            const b = Array.isArray(q.answer) ? [...q.answer].sort().join(',') : '';
+                            isCorrect = a === b;
+                        } else {
+                            isCorrect = Array.isArray(q.answer) ? q.answer.includes(ua) : ua === q.answer;
+                        }
+                        const ansText = (val) => {
+                            if (val === null || val === undefined) return '未作答';
+                            if (!Array.isArray(val)) val = [val];
+                            if (!val.length) return '未作答';
+                            return val.map(x => String.fromCharCode(65 + x) + '. ' + q.options[x]).join(', ');
+                        };
+                        const title = q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : q.title;
+                        return `
+                            <div class="p-3 rounded-lg border ${isCorrect ? 'border-emerald-200 bg-emerald-50/40' : 'border-rose-200 bg-rose-50/40'} space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-xs ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}">第 ${qi + 1} 題 (${q.type === 'tf' ? '是非' : q.type === 'single' ? '單選' : '多選'})</span>
+                                    <span class="text-xs px-2 py-0.5 rounded font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${isCorrect ? '答對' : '答錯'}</span>
+                                </div>
+                                <div class="text-sm font-medium text-slate-800">${title}</div>
+                                <div class="text-xs text-slate-600">作答：<span class="font-bold">${ansText(ua)}</span></div>
+                                <div class="text-xs text-emerald-700 font-bold">標準答案：${ansText(q.answer)}</div>
+                            </div>`;
+                    }).join('');
+
+                    return `
+                        <div class="border border-slate-200 rounded-xl p-4 space-y-3 ${i ? 'mt-4' : ''}">
+                            ${summary}
+                            <div class="space-y-2">${questions}</div>
+                        </div>`;
+                }).join('');
+            }
+
+            document.getElementById('attemptHistoryTitle').textContent =
+                `${sub ? sub.name : ''}・${currentStudent.name || '考生'} 的 ${currentStudent.grade} 年級測驗紀錄（${recs.length} 次）`;
+            document.getElementById('attemptHistoryModal').classList.remove('hidden');
+        }
+
+        function closeAttemptHistory() {
+            document.getElementById('attemptHistoryModal').classList.add('hidden');
+        }
+
+        function loadStudentProfile() {
+            const saved = localStorage.getItem('capskip_student_profile');
+            if (saved) {
+                try {
+                    const p = JSON.parse(saved);
+                    currentStudent = {
+                        name: p.name || '',
+                        grade: p.grade || '4'
+                    };
+                } catch(e) {}
+            }
+            document.getElementById('studentNameInput').value = currentStudent.name;
+            document.getElementById('studentGradeSelect').value = currentStudent.grade;
+            updateProfileUI();
+        }
+
+        // ----------------------------------------------------------
+        //  考生名冊：登入過的姓名可從下拉選單切換（各自獨立成績）
+        // ----------------------------------------------------------
+        const CAND_KEY = 'capskip_candidates';
+
+        function loadCandidates() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(CAND_KEY) || '[]');
+                candidates = Array.isArray(raw) ? raw.filter(c => c && c.name) : [];
+            } catch (e) { candidates = []; }
+            buildCandidateSelect();
+        }
+
+        function buildCandidateSelect() {
+            const sel = document.getElementById('studentSwitchSelect');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">-- 切換考生 --</option>';
+            const cur = currentStudent.name || '';
+            candidates.slice()
+                .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))
+                .forEach(c => {
+                    const opt = document.createElement('option');
+                    const g = parseInt(c.grade) || 4;
+                    opt.value = c.name;
+                    opt.textContent = `${c.name}（${g <= 6 ? '國小' : '國中'}${g}年級）`;
+                    if (c.name === cur) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+        }
+
+        function registerCandidate(name, grade) {
+            if (!name) return;
+            const g = String(grade || '4');
+            const hit = candidates.find(c => c.name === name);
+            if (hit) { hit.grade = g; hit.lastAt = Date.now(); }
+            else candidates.push({ name, grade: g, lastAt: Date.now() });
+            if (candidates.length > 300) candidates = candidates.slice(-300);
+            try { localStorage.setItem(CAND_KEY, JSON.stringify(candidates)); } catch (e) {}
+            buildCandidateSelect();
+        }
+
+        // 從名冊切換考生：載入其姓名+年級，成績自動按其身份重新歸組
+        function switchCandidate() {
+            const sel = document.getElementById('studentSwitchSelect');
+            const name = sel ? sel.value : '';
+            if (!name) return;
+            const c = candidates.find(x => x.name === name);
+            if (!c) return;
+            document.getElementById('studentNameInput').value = c.name;
+            document.getElementById('studentGradeSelect').value = c.grade || '4';
+            saveStudentProfile();
+        }
+
+        // 門檻：看成績 / 開始考試前必須先登入姓名
+        function requireNameBeforeExam() {
+            const direct = document.getElementById('studentNameInput');
+            const inputVal = (direct && direct.value) ? String(direct.value) : '';
+            const name = (inputVal || currentStudent.name || '').trim();
+            if (name) {
+                // 同步姓名/年級到狀態與名冊（輸入框有值時以輸入框為準）
+                if (inputVal.trim()) saveStudentProfile();
+                return true;
+            }
+            showCustomDialog('需要先登入姓名',
+                '看成績或開始考試前，請先在上方「考生」處輸入姓名並選擇年級；' +
+                '已登入過的考生可從「-- 切換考生 --」下拉選單切換。');
+            return false;
+        }
+
+        function saveStudentProfile() {
+            currentStudent.name = document.getElementById('studentNameInput').value.trim();
+            currentStudent.grade = document.getElementById('studentGradeSelect').value;
+            localStorage.setItem('capskip_student_profile', JSON.stringify(currentStudent));
+            if (currentStudent.name) registerCandidate(currentStudent.name, currentStudent.grade);
+            updateProfileUI();
+            renderDashboard();
+        }
+
+        function updateProfileUI() {
+            const gradeNum = parseInt(currentStudent.grade) || 4;
+            const targetGrade = Math.min(MAX_GRADE + 1, gradeNum + 1);
+            const stage = gradeNum <= 6 ? '國小' : '國中';
+            const targetStage = targetGrade <= 6 ? '國小' : '國中';
+
+            document.getElementById('displayName').textContent = currentStudent.name || '考生';
+            document.getElementById('targetGradeTag').textContent =
+                `跳級檢測目標：${stage}${gradeNum}年級 → 檢測是否具備 ${targetStage}${targetGrade}年級 能力`;
+
+            const bp = calcPaperBlueprint(targetGrade);
+            let spec = `題數 ${bp.total} 題（是非 ${bp.tf}、單選 ${bp.single}、多選 ${bp.multiple}），` +
+                `難度配比 基礎 ${Math.round(bp.diff.basic * 100)}% / 進階 ${Math.round(bp.diff.pro * 100)}% / 挑戰 ${Math.round(bp.diff.challenge * 100)}%；` +
+                `時限依題型與難度自動計算`;
+            if (targetGrade >= SPLIT_FROM) {
+                const spBp = splitPaperBlueprint(bp);
+                spec += `；國中分科試卷（生命科學/物質科學/歷史地理/公民與社會）個別 ${spBp.total} 題` +
+                    `（是非 ${spBp.tf}、單選 ${spBp.single}、多選 ${spBp.multiple}）`;
+            }
+            document.getElementById('specText').textContent = spec;
+        }
+
+        function switchTab(tabName) {
+            const dashBtn = document.getElementById('tab-dashboard-btn');
+            const recBtn = document.getElementById('tab-records-btn');
+            const dashView = document.getElementById('tab-dashboard');
+            const recView = document.getElementById('tab-records');
+
+            if (tabName === 'dashboard') {
+                dashBtn.className = "px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-indigo-600 text-indigo-600 bg-white shadow-sm flex items-center space-x-2";
+                recBtn.className = "px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2";
+                dashView.classList.remove('hidden');
+                recView.classList.add('hidden');
+                renderDashboard();
+            } else {
+                if (!requireNameBeforeExam()) return;   // 未登入姓名不得看成績
+                recBtn.className = "px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-indigo-600 text-indigo-600 bg-white shadow-sm flex items-center space-x-2";
+                dashBtn.className = "px-4 py-2.5 font-medium text-sm rounded-t-lg transition-all border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2";
+                recView.classList.remove('hidden');
+                dashView.classList.add('hidden');
+                renderRecordsTable();
+            }
+        }
+
+        function generateSubjectQuestions(subjectId, gradeStr) {
+            // Kept as a thin wrapper over the item-bank engine (see generatePaper).
+            return generatePaper(subjectId, parseInt(gradeStr) || 4).questions;
+        }
+
+
+        function renderDashboard() {
+            const grid = document.getElementById('subjectsGrid');
+            grid.innerHTML = '';
+
+            let totalPR = 0;
+            let completedCount = 0;
+
+            const tGrade = currentTargetGrade();   // 科目開放以目標年級判定
+            const gradeSubjects = subjectsForGrade(tGrade);
+
+            gradeSubjects.forEach(sub => {
+                const recs = attemptsFor(sub.id);
+                const rec = recs[0]; // most recent attempt
+                const attemptCount = recs.length;
+
+                // Preview the adaptive paper this grade would get（分科卷用減量藍圖）
+                const fullBp = calcPaperBlueprint(tGrade);
+                const bp = splitOf(sub.id) ? splitPaperBlueprint(fullBp) : fullBp;
+                const estLimit = Math.round(calcTimeLimit(sub.id, previewQuestions(sub.id, tGrade, bp)) / 60);
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between";
+
+                let statusBadge = `<span class="bg-slate-100 text-slate-500 text-xs px-2.5 py-1 rounded-lg font-medium">未測驗</span>`;
+                let scoreDisplay = `<div class="text-xs text-slate-400 mt-2">點擊開始進行測驗（試卷每次重新抽題）</div>`;
+                let btnText = "開始測驗";
+                let btnClass = "bg-indigo-600 hover:bg-indigo-700 text-white";
+                let historyBtn = '';
+
+                if (rec) {
+                    completedCount++;
+                    totalPR += rec.pr;
+                    const times = attemptCount > 1 ? `・第 ${attemptCount} 次` : '';
+                    statusBadge = `<span class="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-lg font-bold border border-emerald-200">已完成 ${times}(PR ${rec.pr})</span>`;
+                    scoreDisplay = `
+                        <div class="mt-2 flex items-baseline space-x-2">
+                            <span class="text-2xl font-black text-indigo-700">${rec.score}</span>
+                            <span class="text-xs text-slate-400">分 / PR ${rec.pr}（${rec.correctCount}/${rec.total || rec.questions.length} 題）</span>
+                        </div>
+                        ${attemptCount > 1 ? `<div class="text-xs text-slate-400 mt-1">共 ${attemptCount} 次測驗紀錄（含歷次題目）</div>` : ''}
+                        ${scoreTrendHtml(recs)}
+                    `;
+                    // 重考 always draws a FRESH paper (see startSubjectExam),
+                    // so the student meets new questions every time.
+                    btnText = `重考（新題目）`;
+                    btnClass = "bg-indigo-600 hover:bg-indigo-700 text-white";
+                    historyBtn = `
+                        <button onclick="viewAttemptHistory('${sub.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all">
+                            <i class="fa-solid fa-clock-rotate-left"></i> 歷次紀錄
+                        </button>`;
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br ${sub.color} text-white flex items-center justify-center text-sm shadow-sm">
+                                    <i class="fa-solid ${sub.icon}"></i>
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-base">${sub.name}</h4>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="text-xs text-slate-500">共 ${bp.total} 題（是非 ${bp.tf}、單選 ${bp.single}、多選 ${bp.multiple}）</div>
+                        ${scoreDisplay}
+                    </div>
+
+                    <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs text-slate-400"><i class="fa-regular fa-clock"></i> 預估 ${estLimit} 分鐘</span>
+                        <div class="flex items-center space-x-2">
+                            ${historyBtn}
+                            <button onclick="startSubjectExam('${sub.id}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${btnClass}">
+                                ${btnText}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // 未開放科目提示（先移除舊的，避免重繪時重複堆疊）；
+            // 國中起自然/社會被分科取代，用「替代語意」呈現而非列為未開放。
+            document.getElementById('lockedSubjectsNote')?.remove();
+            const juniorFy = tGrade >= SPLIT_FROM;
+            const waiting = allSubjectEntries().filter(e => !gradeSubjects.includes(e))
+                // 國中起綜合科已被分科取代，不再列為「逐步開放」
+                .filter(e => !(juniorFy && !e.of && (e.id === 'science' || e.id === 'social')))
+                .map(e => e.name + (e.of ? `（${subjectMeta(e.of).name}分科）` : ''));
+            let noteHtml = waiting.length ? `🔒 隨著年級提升將逐步開放：<b>${waiting.join('、')}</b>` : '';
+            if (juniorFy) {
+                noteHtml += (noteHtml ? '<br>' : '') +
+                    `🔬 國中起自然科學、社會科分科：<b>生命科學・物質科學・歷史地理・公民與社會</b>`;
+            }
+            if (noteHtml) {
+                grid.insertAdjacentHTML('afterend',
+                    `<p id="lockedSubjectsNote" class="text-xs text-slate-400 mt-2">${noteHtml}</p>`);
+            }
+
+            // Update Overall PR
+            if (completedCount > 0) {
+                const avgPR = Math.round(totalPR / completedCount);
+                document.getElementById('overallPRText').textContent = `PR ${avgPR}`;
+                
+                let statusText = "具備基礎學習能力";
+                if (avgPR >= 90) statusText = "🌟 具備前 10% 頂尖跳級資優能力";
+                else if (avgPR >= 75) statusText = "👍 具備優秀跨年級進階學習實力";
+                
+                document.getElementById('overallStatusText').textContent = statusText;
+            } else {
+                document.getElementById('overallPRText').textContent = "PR --";
+                document.getElementById('overallStatusText').textContent = "尚未完成任何學科測驗";
+            }
+
+            updateDiagnosticReport();
+            updateRadarChartData();
+        }
+
+        function startSubjectExam(subjectId) {
+            if (!requireNameBeforeExam()) return;   // 未登入姓名不得考試
+            const sub = subjectMeta(subjectId);
+            // 國中起綜合科由分科取代，擋下（預防舊入口/直接呼叫）
+            if (currentTargetGrade() >= SPLIT_FROM && (subjectId === 'science' || subjectId === 'social')) {
+                showCustomDialog("科目已分科",
+                    `國中起「${sub.name}」已分為生命科學・物質科學（自然）／歷史地理・公民與社會（社會），請從分科卡片開始測驗。`);
+                return;
+            }
+            // 低年級科目尚未開放時擋下（科目數隨年級逐步增加）
+            const openFrom = subjectOpenFrom(subjectId);
+            if (currentTargetGrade() < openFrom) {
+                showCustomDialog("科目尚未開放",
+                    `「${sub.name}」自升 ${openFrom} 年級起開放測驗，目前年級尚未開放該科目，請先測驗已開放的科目。`);
+                return;
+            }
+            const paper = generatePaper(subjectId, parseInt(currentStudent.grade) || 4);
+            const questions = paper.questions;
+            const n = questions.length;
+
+            if (n === 0) {
+                showCustomDialog("題庫不足", `「${sub.name}」在此年級的題庫尚未建置完成，請先選擇其他科目。`);
+                return;
+            }
+
+            const timeLimit = calcTimeLimit(subjectId, questions);
+
+            currentExam = {
+                subjectId: subjectId,
+                subjectName: sub.name,
+                questions: questions,
+                userAnswers: Array(n).fill(null).map((_, i) => questions[i].type === 'multiple' ? [] : null),
+                flagged: Array(n).fill(false),
+                currentIndex: 0,
+                timeLeft: timeLimit,          // adaptive, in seconds
+                timeLimit: timeLimit,
+                targetGrade: paper.targetGrade
+            };
+
+            // Update UI Modal
+            const bp = paper.blueprint;
+            document.getElementById('examSubjectBadge').textContent = sub.name;
+            document.getElementById('examTitle').textContent =
+                `${currentStudent.name || '考生'} - 檢測升 ${paper.targetGrade} 年級 (${sub.name})`;
+            document.getElementById('examInfoText').textContent =
+                `(共 ${n} 題：是非 ${bp.tf}、單選 ${bp.single}、多選 ${bp.multiple}；時限 ${Math.round(timeLimit / 60)} 分鐘)`;
+            document.getElementById('navTotalText').textContent = n;
+
+            renderQuestionNavGrid();
+            loadCurrentQuestion();
+            startTimer();
+
+            document.getElementById('examModal').classList.remove('hidden');
+        }
+
+        function startTimer() {
+            clearInterval(examTimerInterval);
+            updateTimerDisplay();
+            const limitMin = Math.round(currentExam.timeLimit / 60);
+
+            examTimerInterval = setInterval(() => {
+                if (currentExam.timeLeft > 0) {
+                    currentExam.timeLeft--;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(examTimerInterval);
+                    showCustomDialog("測驗時間結束", `${limitMin} 分鐘倒數結束，系統已為您自動交卷！`, false, () => {
+                        submitExam();
+                    });
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(currentExam.timeLeft / 60);
+            const s = currentExam.timeLeft % 60;
+            document.getElementById('timerDisplay').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function renderQuestionNavGrid() {
+            const container = document.getElementById('questionNavGrid');
+            container.innerHTML = '';
+
+            for (let i = 0; i < currentExam.questions.length; i++) {
+                const btn = document.createElement('button');
+                btn.className = getNavBtnClass(i);
+                btn.textContent = i + 1;
+                btn.onclick = () => {
+                    currentExam.currentIndex = i;
+                    loadCurrentQuestion();
+                };
+                container.appendChild(btn);
+            }
+            document.getElementById('answeredCountText').textContent =
+                `${getAnsweredCount()}/${currentExam.questions.length}`;
+        }
+
+        function getNavBtnClass(idx) {
+            const isCurrent = idx === currentExam.currentIndex;
+            const isFlagged = currentExam.flagged[idx];
+            const hasAns = isAnswered(idx);
+
+            let base = "w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ";
+            if (isCurrent) base += "ring-2 ring-yellow-400 ring-offset-2 ring-offset-slate-800 ";
+
+            if (isFlagged) return base + "bg-amber-500 text-white";
+            if (hasAns) return base + "bg-indigo-600 text-white";
+            return base + "bg-slate-700 text-slate-300 hover:bg-slate-600";
+        }
+
+        function isAnswered(idx) {
+            const ans = currentExam.userAnswers[idx];
+            if (Array.isArray(ans)) return ans.length > 0;
+            return ans !== null && ans !== undefined;
+        }
+
+        function getAnsweredCount() {
+            let count = 0;
+            for (let i = 0; i < currentExam.questions.length; i++) {
+                if (isAnswered(i)) count++;
+            }
+            return count;
+        }
+
+        // 注音 rendering: pair each Chinese character with its Bopomofo syllable.
+        // `zhuyin` is a space-delimited list, one entry per character; empty
+        // entries (digits, punctuation, latin) are rendered as plain characters.
+        /* ---- 注音格量測：寬、高都先看注音需要多少 ---------------------------
+           寬：掃注音表全部音節，固定 16px 取最寬者 M（如 ㄕㄤˋ）。
+           高：取 psutil 非正式取法——用 canvas measureText 的 FontBoundingBox
+           (ascent+descent) 得到该字体注音字形的真实行盒需求。
+           兩者換算成 em 寫入 --zy-cell / --zy-row；.zy / .zy-top / .zy-gap
+           都吃這組變數 → 注音先決定尺寸，文字格跟著對齊。
+           無 DOM（Node 測試）/無注音表時安全跳過，沿用 fallback。 */
+        let zyCellMeasured = false;
+        function measureZhuyinWidth(force = false) {
+            if (zyCellMeasured && !force) return true;
+            if (typeof document === 'undefined' || !document.body) return false;
+            if (typeof ZHUYIN_TABLE === 'undefined' || !ZHUYIN_TABLE) return false;
+            try {
+                const probe = document.createElement('span');
+                probe.className = 'zy-measure-probe';
+                probe.style.fontSize = '16px';   // 固定量測基準，換算才確定
+                probe.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(probe);
+
+                let max = 0, widest = '';
+                for (const key in ZHUYIN_TABLE) {
+                    const zy = ZHUYIN_TABLE[key];
+                    if (!zy) continue;
+                    probe.textContent = zy;
+                    const w = probe.getBoundingClientRect().width;
+                    if (w > max) { max = w; widest = zy; }
+                }
+                probe.remove();
+                if (!max) return false;
+
+                /* --- 宽 cellEm ---
+                   .zy-top 实宽 = M × (0.75F / 16) ≤ cellEm × F
+                   → cellEm ≥ 0.75 × M / 16（F 消去，跨字级通用）。
+                   +0.12em 呼吸空间；限幅 [1.4, 3.6]em。 */
+                const topFontSizeRatio = 0.75;
+                const probePx = 16;
+                const padEm = 0.12;
+                let cellEm = topFontSizeRatio * max / probePx + padEm;
+                cellEm = Math.min(Math.max(cellEm, 1.4), 3.6);
+
+                /* --- 高 topRowEm ---
+                   --zy-row 被 .zy-top 的 height 解析，em 基准 = .zy-top 自身
+                   字级 = 0.75×格字级 → 行盒需求 A@16px 需 ÷ (0.75×16) 换算成
+                   “自己的 em”，而非 ÷16（否则格级变了就漂）。 */
+                let topRowPx = 0;
+                try {
+                    const c2 = document.createElement('canvas').getContext('2d');
+                    if (c2) {
+                        c2.font = '700 16px "Microsoft JhengHei", "PingFang TC", sans-serif';
+                        const m = c2.measureText('ㄕㄤˋ˙ˇ');
+                        const fb = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+                        if (fb > 0) topRowPx = fb;
+                    }
+                } catch (e) { /* canvas 不可用就走下面的 fallback */ }
+                if (!topRowPx) {
+                    probe.style.fontSize = '16px';
+                    probe.textContent = 'ㄕㄤˋ˙';
+                    document.body.appendChild(probe);
+                    topRowPx = probe.getBoundingClientRect().height || 0;
+                    probe.remove();
+                }
+                // A@16px → raw 自身 em，再加可讀餘裕 0.7em（上下排不擠）：
+                // msjh raw = 1.92 → 2.62em；全字型限幅 [2.4, 4.0]em。
+                const rowRaw = topRowPx ? topRowPx / (topFontSizeRatio * probePx) : 2.4;
+                const topRowEm = Math.min(Math.max(rowRaw + 0.7, 2.4), 4.0);
+
+                document.documentElement.style.setProperty('--zy-cell', cellEm.toFixed(2) + 'em');
+                document.documentElement.style.setProperty('--zy-row', typeof topRowEm === 'number' ? topRowEm.toFixed(2) + 'em' : 'auto');
+                console.log('[zy] widest zhuyin =', widest, max.toFixed(0) + 'px',
+                    '→ --zy-cell:', cellEm.toFixed(2) + 'em',
+                    '| 注音行盒:', topRowPx.toFixed(1) + 'px', '→ --zy-row:', topRowEm);
+                zyCellMeasured = true;
+                return true;
+            } catch (e) {
+                console.warn('[zy] measure failed, keep fallback:', e);
+                return false;
+            }
+        }
+        /* 每次 renderZhuyin 前確保已量測（已量過會瞬時跳過） */
+        function ensureZhuyinWidth() { return measureZhuyinWidth(false); }
+
+        function renderZhuyin(text, zhuyin) {
+            ensureZhuyinWidth();
+            const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            if (!zhuyin) return esc(text);
+
+            const chars = Array.from(text);
+            const syls = zhuyin.split(' ');
+            let html = '';
+            for (let i = 0; i < chars.length; i++) {
+                const ch = chars[i];
+                const sy = (syls[i] || '').trim();
+                // Word gaps become a fixed-width spacer so the grid stays aligned.
+                if (ch === ' ' || ch === '\u3000') { html += '<span class="zy-gap"></span>'; continue; }
+                // EVERY character gets a fixed-width cell. Cells without a reading
+                // (digits, punctuation, latin) still keep the empty top row, so all
+                // 漢字 share one clean baseline — no floating ruby, no jitter.
+                html += `<span class="zy"><span class="zy-top">${esc(sy)}</span>` +
+                    `<span class="zy-base">${esc(ch)}</span></span>`;
+            }
+            return html;
+        }
+
+        function loadCurrentQuestion() {
+            const q = currentExam.questions[currentExam.currentIndex];
+            document.getElementById('qNumber').textContent = currentExam.currentIndex + 1;
+
+            const typeMap = { 'tf': '是非題', 'single': '單選題', 'multiple': '多選題' };
+            const diffTag = DIFF_LABEL[q.diff] || '';
+            document.getElementById('qTypeBadge').textContent =
+                `${typeMap[q.type] || '題目'}${diffTag ? ' · ' + diffTag : ''}`;
+
+            // Render the question stem (with 注音 when this grade needs it)
+            const qTextEl = document.getElementById('qText');
+            if (q.zhuyin) {
+                qTextEl.classList.add('zy-line');
+                qTextEl.innerHTML = renderZhuyin(q.title, q.zhuyin);
+            } else {
+                qTextEl.classList.remove('zy-line');
+                qTextEl.textContent = q.title;
+            }
+
+            // Flag Button Status
+            const isFlagged = currentExam.flagged[currentExam.currentIndex];
+            document.getElementById('flagText').textContent = isFlagged ? "已標記" : "標記本題";
+            document.getElementById('flagBtn').className = isFlagged 
+                ? "text-xs px-3 py-1.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-700 font-bold transition-all flex items-center space-x-1"
+                : "text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 transition-all flex items-center space-x-1";
+
+            // Render Options
+            const container = document.getElementById('qOptionsContainer');
+            container.innerHTML = '';
+
+            const currentAns = currentExam.userAnswers[currentExam.currentIndex];
+
+            q.options.forEach((optText, optIdx) => {
+                const isSelected = q.type === 'multiple' 
+                    ? (Array.isArray(currentAns) && currentAns.includes(optIdx))
+                    : currentAns === optIdx;
+
+                const optCard = document.createElement('div');
+                optCard.className = `p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    isSelected ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 shadow-sm' : 'border-slate-200 hover:border-indigo-200 hover:bg-slate-50 text-slate-700'
+                }`;
+
+                const letter = String.fromCharCode(65 + optIdx);
+                optCard.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="w-7 h-7 rounded-lg border font-bold text-xs flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-600 border-slate-200'}">${letter}</span>
+                        <span class="text-sm font-medium">${optText}</span>
+                    </div>
+                    <div class="text-indigo-600 text-base">${isSelected ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>'}</div>
+                `;
+
+                optCard.onclick = () => selectOption(optIdx, q.type);
+                container.appendChild(optCard);
+            });
+
+            renderQuestionNavGrid();
+        }
+
+        function selectOption(optIdx, type) {
+            const idx = currentExam.currentIndex;
+            if (type === 'multiple') {
+                if (!Array.isArray(currentExam.userAnswers[idx])) {
+                    currentExam.userAnswers[idx] = [];
+                }
+                const pos = currentExam.userAnswers[idx].indexOf(optIdx);
+                if (pos > -1) {
+                    currentExam.userAnswers[idx].splice(pos, 1);
+                } else {
+                    currentExam.userAnswers[idx].push(optIdx);
+                }
+            } else {
+                currentExam.userAnswers[idx] = optIdx;
+            }
+            loadCurrentQuestion();
+        }
+
+        function toggleFlagCurrentQuestion() {
+            const idx = currentExam.currentIndex;
+            currentExam.flagged[idx] = !currentExam.flagged[idx];
+            loadCurrentQuestion();
+        }
+
+        function navigateQuestion(step) {
+            const newIndex = currentExam.currentIndex + step;
+            if (newIndex >= 0 && newIndex < currentExam.questions.length) {
+                currentExam.currentIndex = newIndex;
+                loadCurrentQuestion();
+            }
+        }
+
+        function confirmSubmitExam() {
+            const total = currentExam.questions.length;
+            const answered = getAnsweredCount();
+            if (answered < total) {
+                showCustomDialog("交卷確認", `您目前尚有 ${total - answered} 題未作答，確定要現在交卷並查看解析嗎？`, true, () => {
+                    submitExam();
+                });
+            } else {
+                showCustomDialog("交卷確認", "確定要送出答案卷並立刻查看成績與試題解析嗎？", true, () => {
+                    submitExam();
+                });
+            }
+        }
+
+        // Normal CDF approximation (Abramowitz & Stegun 7.1.26) for a
+        // statistically meaningful PR instead of an ad-hoc piecewise guess.
+        function normalCdf(z) {
+            const t = 1 / (1 + 0.2316419 * Math.abs(z));
+            const d = 0.3989422804014327 * Math.exp(-z * z / 2);
+            const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+            return z >= 0 ? 1 - p : p;
+        }
+
+        // Convert a percentage score to PR (1-99) assuming a normal
+        // distribution with mean 75 and SD 15 — a paper built to be
+        // discriminating should not award PR 90 for a mediocre score.
+        // A perfect score is pinned to PR 99, the top of the PR scale.
+        function scoreToPR(score) {
+            if (score >= 100) return 99;
+            const z = (score - 75) / 15;
+            const pr = Math.round(normalCdf(z) * 100);
+            return Math.max(1, Math.min(99, pr));
+        }
+
+        function submitExam() {
+            clearInterval(examTimerInterval);
+            document.getElementById('examModal').classList.add('hidden');
+
+            // Grade Exam
+            let correctCount = 0;
+            currentExam.questions.forEach((q, i) => {
+                const userAns = currentExam.userAnswers[i];
+                if (q.type === 'multiple') {
+                    if (Array.isArray(userAns) && Array.isArray(q.answer)) {
+                        const sortedUser = [...userAns].sort().join(',');
+                        const sortedCorrect = [...q.answer].sort().join(',');
+                        if (sortedUser === sortedCorrect) correctCount++;
+                    }
+                } else {
+                    if (Array.isArray(q.answer) && q.answer.includes(userAns)) correctCount++;
+                    else if (userAns === q.answer) correctCount++;
+                }
+            });
+
+            const total = currentExam.questions.length;
+            const score = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+            const pr = scoreToPR(score);
+
+            // Save Record
+            const record = {
+                id: Date.now().toString() + '-' + Math.random().toString(36).slice(2, 7),
+                studentName: currentStudent.name || '未填姓名',
+                grade: currentStudent.grade,
+                targetGrade: currentExam.targetGrade,
+                subjectId: currentExam.subjectId,
+                subjectName: currentExam.subjectName,
+                score: score,
+                pr: pr,
+                correctCount: correctCount,
+                total: total,
+                timeLimit: currentExam.timeLimit,
+                date: new Date().toLocaleString(),
+                questions: currentExam.questions,
+                userAnswers: currentExam.userAnswers
+            };
+
+            // Keep the full attempt history: every past paper stays stored so
+            // the student's retake record (with the original questions) can
+            // be shown in the statistics view.
+            examRecords.unshift(record);
+            saveRecordsToStorage();
+
+            // Display Result Modal
+            showExamResultModal(record);
+            renderDashboard();
+        }
+
+        function showExamResultModal(rec) {
+            // 預設標題；原卷檢視再由 viewRecordPaper 覆寫。
+            document.getElementById('resultModalTitle').textContent = '單科能力診斷結果與詳細解析';
+            document.getElementById('resScore').textContent = rec.score;
+            document.getElementById('resPR').textContent = `PR ${rec.pr}`;
+            document.getElementById('resCorrect').textContent = `${rec.correctCount} / ${rec.total || rec.questions.length}`;
+            document.getElementById('resultModalSubtitle').textContent =
+                `檢測升 ${rec.targetGrade || (parseInt(rec.grade) + 1)} 年級｜${rec.subjectName}｜時限 ${Math.round((rec.timeLimit || 0) / 60)} 分鐘`;
+
+            let recText = "建議基礎加強";
+            if (rec.pr >= 90) recText = "🌟 具備跳級資優能力";
+            else if (rec.pr >= 75) recText = "👍 具備跨級進階學習實力";
+            else if (rec.pr >= 50) recText = "✅ 表現達一般水準";
+            document.getElementById('resRecommendation').textContent = recText;
+
+            // "Delete this record" must target THIS record, not whatever happens
+            // to be at the front of the array. 用 ^= 匹配：第一次開窗後
+            // onclick 已帶上 id，原字串選擇器會失效導致刪錯紀錄。
+            const delBtn = document.querySelector('#resultModal button[onclick^="deleteCurrentExamResult"]');
+            if (delBtn) delBtn.setAttribute('onclick', `deleteCurrentExamResult('${rec.id}')`);
+            document.getElementById('resultModal').dataset.currentRecordId = rec.id;
+
+            // Render Questions List Breakdown
+            const container = document.getElementById('resultQuestionsList');
+            container.innerHTML = '';
+
+            rec.questions.forEach((q, i) => {
+                const userAns = rec.userAnswers[i];
+                let isCorrect = false;
+
+                if (q.type === 'multiple') {
+                    const sortedUser = Array.isArray(userAns) ? [...userAns].sort().join(',') : '';
+                    const sortedCorrect = Array.isArray(q.answer) ? [...q.answer].sort().join(',') : '';
+                    isCorrect = (sortedUser === sortedCorrect);
+                } else {
+                    isCorrect = Array.isArray(q.answer) ? q.answer.includes(userAns) : userAns === q.answer;
+                }
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border ${isCorrect ? 'border-emerald-200 bg-emerald-50/40' : 'border-rose-200 bg-rose-50/40'} space-y-2`;
+
+                const getAnsText = (indices) => {
+                    if (indices === null || indices === undefined) return '未作答';
+                    if (!Array.isArray(indices)) indices = [indices];
+                    if (!indices.length) return '未作答';
+                    return indices.map(idx => `${String.fromCharCode(65 + idx)}. ${q.options[idx]}`).join(', ');
+                };
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <span class="font-bold text-xs ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}">第 ${i+1} 題 (${q.type === 'tf' ? '是非' : q.type === 'single' ? '單選' : '多選'})</span>
+                            ${q.diff ? `<span class="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">${DIFF_LABEL[q.diff] || ''}</span>` : ''}
+                            <span class="text-xs px-2 py-0.5 rounded font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${isCorrect ? '答對' : '答錯'}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm font-medium text-slate-800${q.zhuyin ? ' zy-line' : ''}">${q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : q.title}</div>
+                    <div class="text-xs text-slate-600">您的答案：<span class="font-bold">${getAnsText(userAns)}</span></div>
+                    <div class="text-xs text-emerald-700 font-bold">標準答案：${getAnsText(q.answer)}</div>
+                    <div class="text-xs text-slate-500 bg-white p-2 rounded border border-slate-200 mt-1">解析：${q.explanation}</div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('resultModal').classList.remove('hidden');
+        }
+
+        function closeResultModal() {
+            document.getElementById('resultModal').classList.add('hidden');
+        }
+
+        function deleteCurrentExamResult(recordId) {
+            showCustomDialog("刪除測試紀錄", "確定要刪除此筆測驗成績嗎？", true, () => {
+                const id = recordId || document.getElementById('resultModal').dataset.currentRecordId;
+                if (id) {
+                    examRecords = examRecords.filter(r => r.id !== id);
+                    saveRecordsToStorage();
+                }
+                closeResultModal();
+                renderDashboard();
+            });
+        }
+
+        // 從成績紀錄表開啟任意一筆舊試卷（原卷：當次的完整題目與作答）。
+        function viewRecordPaper(id) {
+            const rec = examRecords.find(r => r.id === id);
+            if (!rec) {
+                showCustomDialog('查無試卷', '此筆紀錄已不存在（可能已被刪除）。');
+                return;
+            }
+            if (!rec.questions || !rec.questions.length) {
+                showCustomDialog('無試卷內容', '此筆紀錄沒有保存的題目內容，無法顯示原卷。');
+                return;
+            }
+            showExamResultModal(rec);
+            document.getElementById('resultModalTitle').textContent =
+                `原卷檢視：${rec.subjectName}（${rec.date}）`;
+        }
+
+        // ---- JSON 備份：匯出／匯入，讓紀錄可跨裝置、長期保存 ----
+        function exportBackupData() {
+            const payload = {
+                format: 'capskip-backup',
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                examRecords: examRecords,
+                candidates: candidates,
+                usedItems: usedItems
+            };
+            try {
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'capskip-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+            } catch (e) {
+                showCustomDialog('匯出失敗', '這個瀏覽器不支援檔案下載，請改用較新版瀏覽器。');
+            }
+        }
+
+        function triggerImportBackup() {
+            const input = document.getElementById('importBackupInput');
+            if (input) { input.value = ''; input.click(); }
+        }
+
+        function importBackupFile(input) {
+            const file = input && input.files && input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                let data = null;
+                try { data = JSON.parse(String(reader.result)); } catch (e) { data = null; }
+                if (!data || data.format !== 'capskip-backup' || !Array.isArray(data.examRecords)) {
+                    showCustomDialog('匯入失敗', '檔案格式不正確：請選擇由本站「匯出備份」產生的 JSON 檔。');
+                    input.value = '';
+                    return;
+                }
+                showCustomDialog('匯入備份',
+                    `將合併 ${data.examRecords.length} 筆測驗紀錄（同 ID 不會重複）。確定匯入？`, true, () => {
+                    // 合併試卷紀錄：以 id 去重，再按產卷時間（id 前綴毫秒）由新到舊排序。
+                    const have = new Set(examRecords.map(r => r.id));
+                    data.examRecords.forEach(r => {
+                        if (r && r.id && !have.has(r.id)) examRecords.push(r);
+                    });
+                    examRecords.sort((a, b) => (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0));
+                    saveRecordsToStorage();
+
+                    // 合併考生名冊（同名以較新資料為準）。
+                    if (Array.isArray(data.candidates)) {
+                        data.candidates.forEach(c => {
+                            if (!c || !c.name) return;
+                            const hit = candidates.find(x => x.name === c.name);
+                            if (hit) {
+                                if ((c.lastAt || 0) > (hit.lastAt || 0)) { hit.grade = c.grade || hit.grade; hit.lastAt = c.lastAt; }
+                            } else {
+                                candidates.push({ name: c.name, grade: c.grade || '4', lastAt: c.lastAt || 0 });
+                            }
+                        });
+                        candidates.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+                        if (candidates.length > 300) candidates = candidates.slice(-300);
+                        try { localStorage.setItem(CAND_KEY, JSON.stringify(candidates)); } catch (e) {}
+                        buildCandidateSelect();
+                    }
+
+                    // 合併抽題記憶（避免重考再抽到相同題的記憶）。
+                    if (data.usedItems && typeof data.usedItems === 'object') {
+                        Object.keys(data.usedItems).forEach(k => {
+                            if (!Array.isArray(data.usedItems[k])) return;
+                            if (!Array.isArray(usedItems[k])) usedItems[k] = data.usedItems[k];
+                            else usedItems[k] = usedItems[k].concat(data.usedItems[k]).slice(-200);
+                        });
+                        saveUsedItems();
+                    }
+
+                    renderRecordsTable();
+                    renderDashboard();
+                    showCustomDialog('匯入完成', `已合併完成，目前共 ${examRecords.length} 筆測驗紀錄、${candidates.length} 位考生。`);
+                });
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function renderRecordsTable() {
+            const tbody = document.getElementById('recordsTableBody');
+            tbody.innerHTML = '';
+
+            if (examRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-xs text-slate-400">目前尚無任何測驗紀錄</td></tr>`;
+                return;
+            }
+
+            examRecords.forEach((rec) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-all";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-xs text-slate-500">${rec.date}</td>
+                    <td class="py-3 px-4 font-bold text-slate-800">${rec.studentName}</td>
+                    <td class="py-3 px-4 text-xs text-slate-600">${rec.grade}年級 → 升 ${rec.targetGrade || (parseInt(rec.grade) + 1)} 年級</td>
+                    <td class="py-3 px-4 font-semibold text-indigo-700">${rec.subjectName}</td>
+                    <td class="py-3 px-4 font-extrabold text-slate-900">${rec.score} 分<span class="text-xs font-normal text-slate-400"> (${rec.correctCount}/${rec.total || rec.questions.length})</span></td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 text-yellow-800">PR ${rec.pr}</span></td>
+                    <td class="py-3 px-4 text-xs font-medium">${rec.pr >= 90 ? '🌟 具資優跳級能力' : rec.pr >= 75 ? '👍 具進階學習實力' : '一般學習評估'}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="viewRecordPaper('${rec.id}')" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100">
+                            <i class="fa-solid fa-file-lines"></i> 檢視
+                        </button>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="deleteSingleRecord('${rec.id}')" class="text-rose-600 hover:text-rose-800 text-xs font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100">
+                            <i class="fa-solid fa-trash-can"></i> 刪除
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteSingleRecord(id) {
+            showCustomDialog("刪除紀錄", "確定要刪除這筆學生測驗紀錄嗎？", true, () => {
+                examRecords = examRecords.filter(r => r.id !== id);
+                saveRecordsToStorage();
+                renderRecordsTable();
+                renderDashboard();
+            });
+        }
+
+        function clearAllRecords() {
+            showCustomDialog("清除所有紀錄", "警告：這將會清除系統中所有的學生測驗紀錄，確定要清除嗎？", true, () => {
+                examRecords = [];
+                saveRecordsToStorage();
+                renderRecordsTable();
+                renderDashboard();
+            });
+        }
+
+        function saveRecordsToStorage() {
+            try { localStorage.setItem('capskip_exam_records', JSON.stringify(examRecords)); } catch(e) {}
+        }
+
+        function loadRecordsFromStorage() {
+            const saved = localStorage.getItem('capskip_exam_records');
+            if (saved) {
+                try {
+                    examRecords = JSON.parse(saved) || [];
+                } catch(e) { examRecords = []; }
+            }
+            loadUsedItems();
+        }
+
+        function initRadarChart() {
+            const ctx = document.getElementById('radarChartCanvas');
+            if (!ctx) return;
+
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js CDN non ready');
+                return;
+            }
+
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: subjectsConfig.map(s => s.name),
+                    datasets: [{
+                        label: '當前測驗 PR 值',
+                        data: subjectsConfig.map(() => 0),
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(245, 158, 11, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            ticks: { stepSize: 20, display: false }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateRadarChartData() {
+            if (!radarChartInstance) return;
+
+            // 雷達圖只畫「本目標年級已開放」的科目，維持 labels 與資料等長
+            const visibleSubjects = subjectsForGrade(currentTargetGrade());
+            radarChartInstance.data.labels = visibleSubjects.map(s => s.name);
+            const prData = visibleSubjects.map(sub => {
+                const rec = examRecords.find(r => r.subjectId === sub.id && studentKeyOf(r) === studentKeyOf(currentStudent) && r.grade === currentStudent.grade);
+                return rec ? rec.pr : 0;
+            });
+
+            radarChartInstance.data.datasets[0].data = prData;
+            radarChartInstance.update();
+        }
+
+        function updateDiagnosticReport() {
+            const container = document.getElementById('diagnosticReportContent');
+            const targetGrade = currentTargetGrade();
+            const openNow = openSubjectIds(targetGrade);
+            const studentRecs = examRecords.filter(r =>
+                studentKeyOf(r) === studentKeyOf(currentStudent) && r.grade === currentStudent.grade);
+            const shownRecs = studentRecs.filter(r => typeof r.subjectId === 'undefined' || openNow.has(r.subjectId));
+            const hiddenCount = studentRecs.length - shownRecs.length;
+
+            if (studentRecs.length === 0) {
+                container.innerHTML = `
+                    <p class="bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed">
+                        請選擇上方任一學科開始測驗。完成單一學科後，系統會自動評算答對率、常態對照 PR 值，
+                        並判斷該學生是否具備進階至 ${targetGrade} 年級的學習實力（PR 90 以上視為資優跳級建議）。
+                    </p>
+                `;
+                return;
+            }
+
+            let reportHTML = '<div class="space-y-2">';
+            shownRecs.forEach(r => {
+                const tg = r.targetGrade || (parseInt(r.grade) + 1);
+                let badge;
+                if (r.pr >= 90) badge = `<span class="text-amber-600 font-bold">【建議可跳級至 ${tg} 年級】</span>`;
+                else if (r.pr >= 75) badge = `<span class="text-indigo-600 font-bold">【具備進階學習實力】</span>`;
+                else badge = `<span class="text-slate-500">【建議原年級鞏固】</span>`;
+                reportHTML += `
+                    <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 text-xs flex items-center justify-between">
+                        <div><strong class="text-indigo-900">${r.subjectName}</strong>：得分 ${r.score} 分 (PR ${r.pr}) ${badge}</div>
+                        <div class="text-slate-400">${r.date}</div>
+                    </div>
+                `;
+            });
+            reportHTML += '</div>';
+            if (hiddenCount > 0) {
+                reportHTML += `<p class="text-xs text-slate-400 mt-2">另有 ${hiddenCount} 筆已關閉科目的歷史紀錄，請至「歷次紀錄」檢視。</p>`;
+            }
+            container.innerHTML = reportHTML;
+        }
+    </script>
+</body>
+</html>

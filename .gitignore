@@ -1,0 +1,5 @@
+# backups are transient (single .bak per edited file, overwritten each change);
+# version history belongs in git
+*.bak
+# secrets
+.env
