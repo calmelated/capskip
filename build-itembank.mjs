@@ -27,9 +27,21 @@ function zhuyinOf(text) {
     return Array.from(text).map(ch => ZY_TABLE[ch] ?? '').join(' ');
 }
 
+// ----------------------------------------------------------- 課綱出處 (src)
+// 每題注入課綱學習重點條目的 provenance URL，供稽核（數學題另有逐題 n-I/II/III/IV 代碼）。
+const MATH_SRC = 'https://cirn.k12ea.gov.tw/TWELVE/List.aspx?fid=11164';
+const SUBJ_SRC = {
+    math: MATH_SRC,
+    chinese: 'https://cirn.k12ea.gov.tw/TWELVE/List.aspx?fid=11010',
+    science: 'https://cirn.k12ea.gov.tw/TWELVE/List.aspx?fid=11267',
+    social: 'https://cirn.k12ea.gov.tw/TWELVE/List.aspx?fid=11261',
+    english: 'https://cirn.k12ea.gov.tw/TWELVE/List.aspx?fid=11058'
+};
+
 function push(subject, grade, type, item) {
     bank[subject] ??= {};
     bank[subject][grade] ??= { tf: [], single: [], multiple: [] };
+    if (item.src === undefined) item.src = SUBJ_SRC[subject] || null; // non-math: subject default
     bank[subject][grade][type].push(item);
 }
 
@@ -301,8 +313,8 @@ function buildEnglish() {
             { diff: 'basic', q: 'Which word means "book" in Chinese?', options: ['書', '筆', '桌', '椅'], answer: [0], explain: '"書" means book.' },
             { diff: 'pro', q: 'Choose the correct word: "He has _____ here since 2020."', options: ['lived', 'live', 'living', 'lives'], answer: [0], explain: 'Present perfect uses the past participle "lived".' },
             { diff: 'pro', q: 'Which is the comparative form of "good"?', options: ['better', 'gooder', 'more good', 'best'], answer: [0], explain: 'Good → better → best is irregular.' },
-            { diff: 'pro', q: 'Choose the correct sentence.', options: ['I am interested in music.', 'I am interesting in music.', 'I am interest in music.', 'I am interested on music.'], answer: [0], explain: '"Be interested in" is the correct collocation.' },
-            { diff: 'challenge', q: 'Choose the correct sentence.', options: ['Hardly had I arrived when it started raining.', 'Hardly I had arrived when it started raining.', 'Hardly had I arrived than it started raining.', 'Hardly I arrived when it started raining.'], answer: [0], explain: 'Negative adverbials trigger inversion: "Hardly had I arrived when...".' },
+            { diff: 'pro', q: 'Choose the correct sentence (be interested in): "She is _____ in music."', options: ['interested', 'interesting', 'interest', 'interestedly'], answer: [0], explain: '"Be interested in" is the correct collocation.' },
+            { diff: 'challenge', q: 'Choose the correct sentence (hardly ... when inversion):', options: ['Hardly had I arrived when it started raining.', 'Hardly I had arrived when it started raining.', 'Hardly had I arrived than it started raining.', 'Hardly I arrived when it started raining.'], answer: [0], explain: 'Negative adverbials trigger inversion: "Hardly had I arrived when...".' },
             { diff: 'challenge', q: 'What does the idiom "break the ice" mean?', options: ['To start a conversation in a social setting', 'To destroy something', 'To feel cold', 'To end a friendship'], answer: [0], explain: '"Break the ice" means to relieve tension and start talking.' }
         ];
         const multiple = [
@@ -324,8 +336,8 @@ function buildEnglish() {
         const engSingleExtra = [
             { diff: 'basic', q: 'Choose the correct word: "I have two _____."', options: ['books', 'book', 'bookes', 'bookies'], answer: [0], explain: 'Plural of "book" is "books".' },
             { diff: 'basic', q: 'What is the opposite of "hot"?', options: ['cold', 'warm', 'big', 'fast'], answer: [0], explain: 'Hot ↔ cold.' },
-            { diff: 'pro', q: 'Choose the correct sentence.', options: ['There are many students in the classroom.', 'There is many students in the classroom.', 'There have many students in the classroom.', 'There has many students in the classroom.'], answer: [0], explain: 'Plural "students" takes "are".' },
-            { diff: 'challenge', q: 'Choose the correct sentence.', options: ['I wish I could fly.', 'I wish I can fly.', 'I wish I will fly.', 'I wish I am fly.'], answer: [0], explain: 'After "wish" about the present, use the past form "could".' }
+            { diff: 'pro', q: 'Choose the correct sentence (there is/are agreement):', options: ['There are many students in the classroom.', 'There is many students in the classroom.', 'There have many students in the classroom.', 'There has many students in the classroom.'], answer: [0], explain: 'Plural "students" takes "are".' },
+            { diff: 'challenge', q: 'Choose the correct sentence (wish + past form):', options: ['I wish I could fly.', 'I wish I can fly.', 'I wish I will fly.', 'I wish I am fly.'], answer: [0], explain: 'After "wish" about the present, use the past form "could".' }
         ];
         const engMulExtra = [
             { diff: 'basic', q: 'Select all the animals.', options: ['dog', 'cat', 'desk', 'bird'], answer: [0, 1, 3], explain: 'Dog, cat, bird are animals; desk is furniture.' },

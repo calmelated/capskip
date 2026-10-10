@@ -665,10 +665,33 @@
 
         // Draw `need` distinct items of `type` for subjectId at targetGrade,
         // respecting the difficulty quota and avoiding recently used items.
+        //
+        // 驗同質性護欄（同模板同構題每卷最多 2 題）：簽名 = 題面數字換 # 後的模板。
+        // 模板題（tpl）在抽題時以固定探針 rng 物化一次、快取簽名；靜態題直接用 q。
+        const SIG_CAP = 2;
+        const __sigCache = new Map();
+        function normalizeSig(t) { return String(t || '').replace(/\d+/g, '#').replace(/\s+/g, ' ').trim(); }
+        function sigOfItem(it) {
+            if (__sigCache.has(it.id)) return __sigCache.get(it.id);
+            let s;
+            if (it.tpl) {
+                if (typeof it.gen === 'function') {
+                    let n = 0;
+                    const probe = () => { n++; return ((n * 2654435761) % 4294967296) / 4294967296; };
+                    try { s = normalizeSig(it.gen(probe).q); } catch (e) { s = 'TPL:' + it.id; }
+                } else { s = 'TPL:' + it.id; }
+            } else { s = normalizeSig(it.q); }
+            __sigCache.set(it.id, s);
+            return s;
+        }
+
         function drawItems(subjectId, targetGrade, type, need, quota, rng, domain) {
             if (need <= 0) return [];
             let pool = getItemPool(subjectId, targetGrade, type);
             if (domain) pool = pool.filter(it => it.dom === domain);
+            // 年級範圍白名單：scope=該題組最早可出現在哪個目標年級（課綱學習階段）。
+            // 題庫建置時已按此過濾；此處再保險（含 getItemPool 近鄰回退的情況）。
+            if (subjectId === 'math') pool = pool.filter(it => !(it.scope > targetGrade));
             if (!pool.length) return [];
 
             const key = `${subjectId}${domain ? '@' + domain : ''}|${targetGrade}|${type}`;
@@ -686,15 +709,24 @@
 
             const taken = [];
             const takenIds = new Set();
+            const sigCount = {};   // 同卷內 (type|簽名) 已取計數
+            const take = (it) => {
+                if (takenIds.has(it.id)) return false;
+                const sg = type + '|' + sigOfItem(it);
+                if ((sigCount[sg] || 0) >= SIG_CAP) return false; // 同構上限
+                taken.push(it); takenIds.add(it.id); sigCount[sg] = (sigCount[sg] || 0) + 1;
+                return true;
+            };
             const tiers = ['basic', 'pro', 'challenge'];
 
             // First pass: honour the difficulty quota
+            // (無配滿時不退而求其次填佔位題：改為留空讓第二次 pass 不生效，
+            //  避免打破同一籤名 2 題上限 → 這種情況會少出題，藍圖會顯示實際題數。)
             tiers.forEach(t => {
                 let want = quota[t] || 0;
                 while (want > 0 && byDiff[t].length) {
                     const it = byDiff[t].shift();
-                    if (takenIds.has(it.id)) continue;
-                    taken.push(it); takenIds.add(it.id); want--;
+                    if (take(it)) want--;
                 }
             });
 
@@ -705,8 +737,7 @@
                 );
                 for (const it of rest) {
                     if (taken.length >= need) break;
-                    if (takenIds.has(it.id)) continue;
-                    taken.push(it); takenIds.add(it.id);
+                    take(it);
                 }
             }
 
@@ -759,6 +790,8 @@
                     let m = null, hash = null;
                     for (let attempt = 0; attempt < 12; attempt++) {
                         const candidate = materializeItem(it, rng, needZhuyin);
+                        // 數學超綱關鍵字防護網（篩 pool scope 之後的最後一道網）：
+                        if (poolSubject === 'math' && scopeViolation(candidate.title + ' ' + (candidate.options || []).join(' '), targetGrade)) continue;
                         const h = variantHashOf(candidate);
                         if (!usedVariant.has(h)) { m = candidate; hash = h; break; }
                         // 是非題 has only two possible texts; once both are on the
@@ -767,8 +800,9 @@
                     }
                     if (!m) {
                         m = materializeItem(it, rng, needZhuyin);
+                        const kw = poolSubject === 'math' && scopeViolation(m.title + ' ' + (m.options || []).join(' '), targetGrade);
                         hash = variantHashOf(m);
-                        if (usedVariant.has(hash)) return; // drop the duplicate
+                        if (usedVariant.has(hash) || kw) return; // drop the duplicate / out-of-scope
                     }
                     usedVariant.add(hash);
                     questions.push({
