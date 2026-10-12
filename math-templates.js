@@ -724,6 +724,31 @@ function buildMath(push, nid) {
         gen.fam = 'ml.chal6';
         fam(6, 'multiple', 'challenge', 0, 'n-III-6', 3, gen);
     }
+    // 比值與比例（S4）
+    {
+        const gen = (rnd) => {
+            const a = 2 + Math.floor(rnd() * 6);
+            const b = a + 1 + Math.floor(rnd() * 5);
+            const k = 2 + Math.floor(rnd() * 5);
+            const opts = [
+                a + ' : ' + b + ' 的比值是 ' + a + '／' + b,
+                a + ' : ' + b + ' 前項和後項同乘以 ' + k + ' 後，比值不變',
+                a + ' : ' + b + ' 和 ' + (a * k) + ' : ' + (b * k) + ' 相等',
+                a + ' : ' + b + ' 的比值是 ' + b + '／' + a
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於比值 ' + a + ' : ' + b + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '比值是前項除以後項，所以 ' + a + ' : ' + b + ' 的比值是 ' + a + '／' + b + '。前項和後項同乘以（或同除以）一個不為 0 的數，比值不變，因此和 ' + (a * k) + ' : ' + (b * k) + ' 相等。最後一項把前後項顛倒，比值會變成倒數，是錯的。'
+            };
+        };
+        gen.fam = 'ml.ratio8';
+        fam(8, 'multiple', 'pro', 0, 'n-IV-9', 2, gen);
+    }
     // ml.chal8 — 負數與指數進階（from 8）
     {
         const gen = () => {
@@ -736,6 +761,723 @@ function buildMath(push, nid) {
         gen.fam = 'ml.chal8';
         fam(8, 'multiple', 'challenge', 0, 'n-IV-2', 3, gen);
     }
+// ==========================================================================
+    // 補足「各學習階段自己的題組數量」（2026-10-12）
+    //
+    // 為什麼要補：drawItems 會用 diffQuota 的難度配額抽題，但一個階段若只有少數
+    // 個 family，配額就會被更早階段（scope 較小）的 family 填掉——實測國中數學卷
+    // 仍有 22~31% 是 scope ≤ 4 的中年級題。每個 family 一張卷最多出 2 題
+    // （drawItems 的 SIG_CAP），所以「本階段 family 數 × 2」必須足以覆蓋配額。
+    // mathspec.js 量出各 (階段,題型,難度) 的缺口，這裡逐格補齊。
+    // ==========================================================================
+
+    // ---- S2（中年級；目標年級 4-5）------------------------------------------
+    // 四捨五入取到十位
+    {
+        const gen = (rnd) => {
+            const a = 101 + Math.floor(rnd() * 800);
+            const right = Math.round(a / 10) * 10;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? right + (rnd() < 0.5 ? -10 : 10) : right;
+            return {
+                q: '判斷是否正確：' + a + ' 用四捨五入法取到十位是 ' + shown,
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。' + a + ' 的個位數字是 ' + (a % 10) + '，四捨五入取到十位後應該是 ' + right + '。'
+                    : '正確。' + a + ' 的個位數字是 ' + (a % 10) + '，取到十位後為 ' + right + '。'
+            };
+        };
+        gen.fam = 'tf.round';
+        fam(4, 'tf', 'basic', 0, 'n-II-4', 2, gen);
+    }
+    // 付錢找零
+    {
+        const gen = (rnd) => {
+            const price = 15 + Math.floor(rnd() * 70);
+            const right = 100 - price;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? right + 10 : right;
+            return {
+                q: '判斷是否正確：買 ' + price + ' 元的東西，付 100 元，應該找回 ' + shown + ' 元',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。100 − ' + price + ' = ' + right + ' 元，不是 ' + shown + ' 元。'
+                    : '正確。100 − ' + price + ' = ' + right + ' 元。'
+            };
+        };
+        gen.fam = 'tf.money';
+        fam(4, 'tf', 'basic', 0, 'n-II-2', 2, gen);
+    }
+    // 時間的加減
+    {
+        const gen = (rnd) => {
+            const h = 7 + Math.floor(rnd() * 11);
+            const m = [10, 20, 25, 40, 50][Math.floor(rnd() * 5)];
+            const add = [15, 20, 30, 35, 45][Math.floor(rnd() * 5)];
+            const total = h * 60 + m + add;
+            const rh = Math.floor(total / 60), rm = total % 60;
+            const wrong = rnd() < 0.5;
+            const wm = (rm + 5) % 60;
+            const shown = rh + ' 時 ' + (wrong ? wm : rm) + ' 分';
+            const right = rh + ' 時 ' + rm + ' 分';
+            return {
+                q: '判斷是否正確：從 ' + h + ' 時 ' + m + ' 分再過 ' + add + ' 分鐘，是 ' + shown,
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。' + m + ' 分加 ' + add + ' 分是 ' + (m + add) + ' 分，換算後應為 ' + right + '。'
+                    : '正確。' + m + ' 分加 ' + add + ' 分為 ' + (m + add) + ' 分，' + (m + add >= 60 ? '進位後' : '') + '是 ' + right + '。'
+            };
+        };
+        gen.fam = 'tf.time';
+        fam(4, 'tf', 'pro', 0, 'n-II-5', 1, gen);
+    }
+    // 長方形面積判斷
+    {
+        const gen = (rnd) => {
+            const w = 4 + Math.floor(rnd() * 12), h = 3 + Math.floor(rnd() * 10);
+            const right = w * h;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? right + w : right;
+            return {
+                q: '判斷是否正確：長 ' + w + ' 公分、寬 ' + h + ' 公分的長方形，面積是 ' + shown + ' 平方公分',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。面積 = 長 × 寬 = ' + w + ' × ' + h + ' = ' + right + ' 平方公分。'
+                    : '正確。面積 = ' + w + ' × ' + h + ' = ' + right + ' 平方公分。'
+            };
+        };
+        gen.fam = 'tf.area';
+        fam(4, 'tf', 'challenge', 0, 'n-II-9', 1, gen);
+    }
+    // 長方形面積
+    {
+        const gen = (rnd) => {
+            const w = 4 + Math.floor(rnd() * 13), h = 4 + Math.floor(rnd() * 11);
+            const correct = (w * h) + ' 平方公分';
+            const cands = [(w + h) + ' 平方公分', (w * h + w) + ' 平方公分', (w * h - h) + ' 平方公分'];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '一個長方形的長是 ' + w + ' 公分、寬是 ' + h + ' 公分，面積是多少平方公分？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '面積 = 長 × 寬 = ' + w + ' × ' + h + ' = ' + (w * h) + ' 平方公分。'
+            };
+        };
+        gen.fam = 'sg.area';
+        fam(4, 'single', 'basic', 0, 'n-II-9', 2, gen);
+    }
+    // 二位數除以一位數（有餘數）
+    {
+        const gen = (rnd) => {
+            const d = 3 + Math.floor(rnd() * 7);
+            const qq = 4 + Math.floor(rnd() * 12);
+            const r = 1 + Math.floor(rnd() * (d - 1));
+            const n = d * qq + r;
+            const correct = qq + ' 餘 ' + r;
+            const cands = [qq + ' 餘 ' + (r + 1), (qq + 1) + ' 餘 ' + r, String(qq)];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: n + ' ÷ ' + d + ' 的商和餘數分別是多少？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: d + ' × ' + qq + ' = ' + (d * qq) + '，' + n + ' − ' + (d * qq) + ' = ' + r + '，所以商是 ' + qq + '、餘數是 ' + r + '。'
+            };
+        };
+        gen.fam = 'sg.div2';
+        fam(4, 'single', 'basic', 0, 'n-II-3', 2, gen);
+    }
+    // 長方形周長
+    {
+        const gen = (rnd) => {
+            const h = 3 + Math.floor(rnd() * 8);
+            const w = h + 2 + Math.floor(rnd() * 6);
+            const correct = (2 * (w + h)) + ' 公分';
+            const cands = [(w * h) + ' 公分', (w + h) + ' 公分', (2 * w + h) + ' 公分'];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '一個長方形的長是 ' + w + ' 公分、寬是 ' + h + ' 公分，周長是多少公分？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '周長 = (長 + 寬) × 2 = (' + w + ' + ' + h + ') × 2 = ' + (2 * (w + h)) + ' 公分。'
+            };
+        };
+        gen.fam = 'sg.perim2';
+        fam(4, 'single', 'pro', 0, 'n-II-9', 2, gen);
+    }
+    // 同分母分數加法
+    {
+        const gen = (rnd) => {
+            const d = 5 + Math.floor(rnd() * 8);
+            const a = 1 + Math.floor(rnd() * Math.max(1, Math.floor((d - 2) / 2)));
+            const b = a + 1 + Math.floor(rnd() * Math.max(1, d - a - 1));
+            const s = a + b;
+            const correct = '(' + s + ')／' + d;
+            const cands = ['(' + s + ')／' + (2 * d), '(' + (a * b) + ')／' + d, '(' + (a + b + d) + ')／' + d];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '計算 ' + a + '／' + d + ' + ' + b + '／' + d + ' = ？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '同分母分數相加，分母不變、分子相加：' + a + ' + ' + b + ' = ' + s + '，所以答案是 ' + s + '／' + d + '。'
+            };
+        };
+        gen.fam = 'sg.fracadd';
+        fam(4, 'single', 'pro', 0, 'n-II-6', 2, gen);
+    }
+    // 兩步驟加減
+    {
+        const gen = (rnd) => {
+            const base = 120 + Math.floor(rnd() * 400);
+            const got = 20 + Math.floor(rnd() * 90);
+            const used = 10 + Math.floor(rnd() * 60);
+            const correct = String(base + got - used);
+            const cands = [String(base + got + used), String(base + got), String(base - got - used)];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '書局原有 ' + base + ' 本書，進貨 ' + got + ' 本後又賣出 ' + used + ' 本，現在還有幾本？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: base + ' + ' + got + ' − ' + used + ' = ' + (base + got - used) + ' 本。'
+            };
+        };
+        gen.fam = 'sg.two2';
+        fam(4, 'single', 'challenge', 0, 'n-II-4', 2, gen);
+    }
+    // 小數比大小
+    {
+        const gen = (rnd) => {
+            const x = (10 + Math.floor(rnd() * 60)) / 10;
+            const d = (1 + Math.floor(rnd() * 30)) / 10;
+            const y = Math.round((x + d) * 10) / 10;
+            const opts = [
+                x + ' 比 ' + y + ' 小',
+                y + ' 比 ' + x + ' 大',
+                x + ' 比 ' + y + ' 大',
+                x + ' 和 ' + y + ' 一樣大'
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((t, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '比較 ' + x + ' 和 ' + y + ' 這兩個小數，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(t => shuffled.indexOf(t)).sort((a2, b2) => a2 - b2),
+                explain: '比較小數時先比整數部分，整數部分相同再依序比十分位、百分位。' + x + ' < ' + y + '，所以「' + x + ' 比 ' + y + ' 小」與「' + y + ' 比 ' + x + ' 大」都正確。'
+            };
+        };
+        gen.fam = 'ml.dec';
+        fam(4, 'multiple', 'basic', 0, 'n-II-7', 2, gen);
+    }
+    // 三位數的位值
+    {
+        const gen = (rnd) => {
+            const h = 1 + Math.floor(rnd() * 8);
+            const t = Math.floor(rnd() * 10);
+            let u = Math.floor(rnd() * 10);
+            if (u === h) u = (u + 1) % 10;
+            const n = h * 100 + t * 10 + u;
+            const opts = [
+                n + ' 的百位數字是 ' + h,
+                n + ' 的十位數字是 ' + t,
+                n + ' 的百位數字代表 ' + h + ' 個 100',
+                n + ' 的個位數字是 ' + h
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於三位數 ' + n + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: n + ' 的百位是 ' + h + '、十位是 ' + t + '、個位是 ' + u + '；百位的 ' + h + ' 代表 ' + h + ' 個 100。第 4 項說個位是 ' + h + '，實際上個位是 ' + u + '。'
+            };
+        };
+        gen.fam = 'ml.place';
+        fam(4, 'multiple', 'basic', 0, 'n-II-1', 2, gen);
+    }
+    // 長方形的性質
+    {
+        const gen = (rnd) => {
+            const h = 4 + Math.floor(rnd() * 7);
+            const w = h + 1 + Math.floor(rnd() * 6);
+            const opts = [
+                '兩組對邊分別等長',
+                '四個角都是直角',
+                '周長是 ' + (2 * (w + h)) + ' 公分',
+                '面積是 ' + (w + h) + ' 平方公分'
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '一個長 ' + w + ' 公分、寬 ' + h + ' 公分的長方形，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '長方形兩組對邊等長、四個角都是直角，周長 = (' + w + ' + ' + h + ') × 2 = ' + (2 * (w + h)) + ' 公分。面積是 ' + w + ' × ' + h + ' = ' + (w * h) + ' 平方公分，不是 ' + (w + h) + '。'
+            };
+        };
+        gen.fam = 'ml.geom';
+        fam(4, 'multiple', 'basic', 0, 'n-II-9', 2, gen);
+    }
+    // 同分母分數的比較與加法
+    {
+        const gen = (rnd) => {
+            const d = 6 + Math.floor(rnd() * 7);
+            const a = 1 + Math.floor(rnd() * Math.max(1, d - 3));
+            const b = a + 1 + Math.floor(rnd() * Math.max(1, d - a - 1));
+            const opts = [
+                a + '／' + d + ' 比 ' + b + '／' + d + ' 小',
+                '同分母分數相加時，分母保持不變',
+                a + '／' + d + ' + ' + b + '／' + d + ' = ' + (a + b) + '／' + d,
+                a + '／' + d + ' + ' + b + '／' + d + ' = ' + (a + b) + '／' + (2 * d)
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於 ' + a + '／' + d + ' 和 ' + b + '／' + d + ' 這兩個分數，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '分母相同時，分子越大分數越大，所以 ' + a + '／' + d + ' 比 ' + b + '／' + d + ' 小；相加時分母不變，' + a + ' + ' + b + ' = ' + (a + b) + '，和是 ' + (a + b) + '／' + d + '。'
+            };
+        };
+        gen.fam = 'ml.dfrac';
+        fam(4, 'multiple', 'pro', 0, 'n-II-6', 2, gen);
+    }
+    // 公尺與公分
+    {
+        const gen = (rnd) => {
+            const m = 1 + Math.floor(rnd() * 8);
+            const opts = [
+                m + ' 公尺 = ' + (m * 100) + ' 公分',
+                (m * 100) + ' 公分 = ' + m + ' 公尺',
+                m + ' 公尺 = ' + (m * 10) + ' 公分',
+                m + ' 公尺 = ' + (m * 1000) + ' 公分'
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於長度單位「公尺」和「公分」的換算，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '1 公尺 = 100 公分，所以 ' + m + ' 公尺 = ' + (m * 100) + ' 公分。' + (m * 10) + ' 公分只有 ' + (m * 10 / 100) + ' 公尺，' + (m * 1000) + ' 公分則是 ' + (m * 10) + ' 公尺，都不對。'
+            };
+        };
+        gen.fam = 'ml.unit';
+        fam(4, 'multiple', 'pro', 0, 'n-II-5', 4, gen);
+    }
+    // 角度：銳角與餘角
+    {
+        const gen = (rnd) => {
+            const a = 20 + Math.floor(rnd() * 70);
+            const comp = 90 - a;
+            const opts = [
+                a + ' 度的角是銳角',
+                a + ' 度的角和 ' + comp + ' 度的角合起來是直角',
+                a + ' 度的角，餘角是 ' + comp + ' 度',
+                a + ' 度的角，補角是 ' + comp + ' 度'
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於一個 ' + a + ' 度的角，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: a + ' 度小於 90 度，是銳角；兩角相加等於 90 度時互為餘角，所以餘角是 90 − ' + a + ' = ' + comp + ' 度。補角要和它相加等於 180 度，應該是 ' + (180 - a) + ' 度，不是 ' + comp + ' 度。'
+            };
+        };
+        gen.fam = 'ml.angle';
+        fam(4, 'multiple', 'challenge', 0, 'n-II-9', 2, gen);
+    }
+
+    // ---- S3（高年級；目標年級 6-7）------------------------------------------
+    // 因數的判斷
+    {
+        const gen = (rnd) => {
+            const n = 12 + Math.floor(rnd() * 40);
+            const ds = []; for (let i = 2; i < n; i++) if (n % i === 0) ds.push(i);
+            const nd = []; for (let i = 2; i < n; i++) if (n % i !== 0) nd.push(i);
+            if (!ds.length || !nd.length) return gen(rnd);
+            const d = ds[Math.floor(rnd() * ds.length)];
+            const e = nd[Math.floor(rnd() * nd.length)];
+            const askYes = rnd() < 0.5;
+            const v = askYes ? d : e;
+            return {
+                q: '判斷是否正確：' + v + ' 是 ' + n + ' 的因數',
+                options: ['是', '非'],
+                answer: [askYes ? 0 : 1],
+                explain: askYes
+                    ? '正確。' + n + ' ÷ ' + v + ' = ' + (n / v) + '，可以整除，所以 ' + v + ' 是 ' + n + ' 的因數。'
+                    : '不正確。' + n + ' ÷ ' + v + ' 不能整除，所以 ' + v + ' 不是 ' + n + ' 的因數。'
+            };
+        };
+        gen.fam = 'tf.factor';
+        fam(6, 'tf', 'basic', 0, 'n-III-3', 2, gen);
+    }
+    // 分數的等值
+    {
+        const gen = (rnd) => {
+            const b = 3 + Math.floor(rnd() * 7);
+            const a = 1 + Math.floor(rnd() * (b - 1));
+            const k = 2 + Math.floor(rnd() * 5);
+            const wrong = rnd() < 0.5;
+            const sa = wrong ? a * k + 1 : a * k, sb = b * k;
+            return {
+                q: '判斷是否正確：' + a + '／' + b + ' 和 ' + sa + '／' + sb + ' 相等',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。分子和分母要同時乘以相同的數才會等值：' + a + '／' + b + ' = ' + (a * k) + '／' + (b * k) + '，不是 ' + sa + '／' + sb + '。'
+                    : '正確。分子分母同乘以 ' + k + '：' + a + '／' + b + ' = ' + (a * k) + '／' + (b * k) + '。'
+            };
+        };
+        gen.fam = 'tf.frac';
+        fam(6, 'tf', 'basic', 0, 'n-III-4', 2, gen);
+    }
+    // 因數的個數
+    {
+        const gen = (rnd) => {
+            const n = 12 + Math.floor(rnd() * 30);
+            const c = divisorCount(n);
+            const correct = c + ' 個';
+            const cands = [(c + 1) + ' 個', (c - 1) + ' 個', (c + 2) + ' 個'];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: n + ' 的所有正因數共有幾個？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '列出所有能整除 ' + n + ' 的正整數，共有 ' + c + ' 個。'
+            };
+        };
+        gen.fam = 'sg.factor';
+        fam(6, 'single', 'basic', 0, 'n-III-3', 2, gen);
+    }
+    // 一位小數乘以整數
+    {
+        const gen = (rnd) => {
+            const a = 2 + Math.floor(rnd() * 8);
+            let b; let guard = 0;
+            do { b = (5 + Math.floor(rnd() * 95)) / 10; guard++; }
+            while (Math.abs(a * b - (a + b)) < 0.05 && guard < 30);
+            const prod = Math.round(a * b * 10) / 10;
+            const correct = prod + '';
+            const cands = [(Math.round((prod + a) * 10) / 10) + '', (Math.round((prod + 0.1) * 10) / 10) + '', (Math.round((a + b) * 10) / 10) + ''];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: a + ' × ' + b + ' = ？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: a + ' × ' + b + ' = ' + prod + '（先算 ' + a + ' × ' + (b * 10) + ' = ' + (a * b * 10) + '，再除以 10）。'
+            };
+        };
+        gen.fam = 'sg.dec2';
+        fam(6, 'single', 'basic', 0, 'n-III-5', 2, gen);
+    }
+    // 因數與倍數（多選）
+    {
+        const gen = (rnd) => {
+            const n = 6 + Math.floor(rnd() * 18);
+            const k = 2 + Math.floor(rnd() * 5);
+            const opts = [
+                (n * k) + ' 是 ' + n + ' 的倍數',
+                n + ' 是 ' + (n * k) + ' 的因數',
+                n + ' 是 ' + (n * k) + ' 的倍數',
+                (n * k) + ' 是 ' + n + ' 的因數'
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於 ' + n + ' 和 ' + (n * k) + ' 這兩個數，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: n + ' × ' + k + ' = ' + (n * k) + '，所以 ' + (n * k) + ' 是 ' + n + ' 的倍數，反過來說 ' + n + ' 是 ' + (n * k) + ' 的因數。倍數和因數的關係是互相對應的，不能顛倒。'
+            };
+        };
+        gen.fam = 'ml.factor';
+        fam(6, 'multiple', 'basic', 0, 'n-III-3', 2, gen);
+    }
+    // 倍數的判斷
+    {
+        const gen = (rnd) => {
+            const n = 3 + Math.floor(rnd() * 9);
+            const k = 3 + Math.floor(rnd() * 9);
+            const right = n * k;
+            const off = right + 1 + Math.floor(rnd() * (n - 1));
+            const opts = [
+                right + ' 是 ' + n + ' 的倍數',
+                off + ' 是 ' + n + ' 的倍數',
+                right + ' 能被 ' + n + ' 整除',
+                off + ' 能被 ' + n + ' 整除'
+            ];
+            const correctTexts = [opts[0], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: n + ' × ' + k + ' = ' + right + '，所以 ' + right + ' 是 ' + n + ' 的倍數、也能被 ' + n + ' 整除。' + off + ' ÷ ' + n + ' 不能整除，所以 ' + off + ' 不是 ' + n + ' 的倍數。'
+            };
+        };
+        gen.fam = 'ml.multiple';
+        fam(6, 'multiple', 'basic', 0, 'n-III-3', 2, gen);
+    }
+    // 質數與合數
+    {
+        const gen = (rnd) => {
+            const cand = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+            const p = cand[Math.floor(rnd() * cand.length)];
+            const c = p + 3; // 偶數且 >2，必為合數
+            const opts = [
+                p + ' 是質數',
+                c + ' 是合數',
+                p + ' 是合數',
+                c + ' 是質數'
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: p + ' 只有 1 和本身兩個因數，是質數；' + c + ' 除了 1 和本身還有其他因數，是合數。'
+            };
+        };
+        gen.fam = 'ml.prime';
+        fam(6, 'multiple', 'basic', 0, 'n-III-3', 2, gen);
+    }
+    // 比例關係
+    {
+        const gen = (rnd) => {
+            const unit = 3 + Math.floor(rnd() * 12);
+            const n = 2 + Math.floor(rnd() * 6);
+            const m = n + 1 + Math.floor(rnd() * 4);
+            const opts = [
+                n + ' 個要 ' + (unit * n) + ' 元',
+                m + ' 個要 ' + (unit * m) + ' 元',
+                '每個 ' + unit + ' 元，數量越多總價越高',
+                m + ' 個要 ' + (unit * n) + ' 元'
+            ];
+            const correctTexts = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '一個 ' + unit + ' 元的東西，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '單價固定時，總價和數量成正比：' + n + ' 個是 ' + unit + ' × ' + n + ' = ' + (unit * n) + ' 元，' + m + ' 個是 ' + unit + ' × ' + m + ' = ' + (unit * m) + ' 元。最後一項把 ' + m + ' 個的總價寫成 ' + n + ' 個的價錢，是錯的。'
+            };
+        };
+        gen.fam = 'ml.prop';
+        fam(6, 'multiple', 'pro', 0, 'n-III-9', 2, gen);
+    }
+    // 平均數
+    {
+        const gen = (rnd) => {
+            const avg = 60 + Math.floor(rnd() * 30);
+            const n = 3 + Math.floor(rnd() * 3);
+            const total = avg * n;
+            const v = []; let rest = total;
+            for (let i = 0; i < n - 1; i++) { const off = Math.floor(rnd() * 11) - 5; v.push(avg + off); rest -= (avg + off); }
+            v.push(rest);
+            const opts = [
+                '這 ' + n + ' 個數的平均是 ' + avg,
+                '這 ' + n + ' 個數的總和是 ' + total,
+                '這 ' + n + ' 個數的平均是 ' + (total + 1),
+                '這 ' + n + ' 個數的總和是 ' + (avg + n)
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '有 ' + n + ' 個數，總和是 ' + total + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '平均數 = 總和 ÷ 個數 = ' + total + ' ÷ ' + n + ' = ' + avg + '。總和是 ' + total + '，不是 ' + (avg + n) + '。'
+            };
+        };
+        gen.fam = 'ml.avg';
+        fam(6, 'multiple', 'pro', 0, 'n-III-8', 2, gen);
+    }
+
+    // ---- S4（國中；目標年級 8-10）-------------------------------------------
+    // 負數的大小與絕對值
+    {
+        const gen = (rnd) => {
+            const a = -(1 + Math.floor(rnd() * 20));
+            const b = 1 + Math.floor(rnd() * 20);
+            const correct = Math.abs(a) + '';
+            const cands = [String(a), String(b), String(-Math.abs(a))];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '|' + a + '| 的值是多少？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '絕對值表示在數線上與 0 的距離，所以 |' + a + '| = ' + Math.abs(a) + '。'
+            };
+        };
+        gen.fam = 'tf.negabs';
+        fam(8, 'tf', 'basic', 0, 'n-IV-2', 1, gen);
+    }
+    // 科學記號
+    {
+        const gen = (rnd) => {
+            const d = (1 + Math.floor(rnd() * 9)) + '.' + (1 + Math.floor(rnd() * 9));
+            const k = 2 + Math.floor(rnd() * 5);
+            const n = Math.round(parseFloat(d) * Math.pow(10, k));
+            const correct = d + ' × 10^' + k;
+            const cands = [d + ' × 10^' + (k + 1), d + ' × 10^-' + k, d + ' × 10^' + (k - 1)];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '將 ' + n + ' 表示成科學記號，下列哪一個正確？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '科學記號寫成 a × 10^n，其中 1 ≤ a < 10。' + n + ' = ' + d + ' × 10^' + k + '。'
+            };
+        };
+        gen.fam = 'sg.sci';
+        fam(8, 'single', 'basic', 0, 'n-IV-3', 2, gen);
+    }
+    // 平方根
+    {
+        const gen = (rnd) => {
+            const k = 3 + Math.floor(rnd() * 16);
+            const n = k * k;
+            const correct = String(k);
+            const cands = [String(k + 1), String(k - 1), String(2 * k)];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '√' + n + ' = ？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: k + ' × ' + k + ' = ' + n + '，且 ' + k + ' 為正數，所以 √' + n + ' = ' + k + '。'
+            };
+        };
+        gen.fam = 'sg.root';
+        fam(8, 'single', 'pro', 0, 'n-IV-5', 3, gen);
+    }
+    // 等差數列的第 n 項
+    {
+        const gen = (rnd) => {
+            const a1 = 2 + Math.floor(rnd() * 9);
+            const d = 2 + Math.floor(rnd() * 8);
+            const n = 6 + Math.floor(rnd() * 8);
+            const an = a1 + (n - 1) * d;
+            const correct = String(an);
+            const cands = [String(a1 + n * d), String(a1 + (n - 2) * d), String(an + d)];
+            const all = shuffleWithRnd([correct, ...cands], rnd);
+            return {
+                q: '等差數列的首項是 ' + a1 + '、公差是 ' + d + '，第 ' + n + ' 項是多少？',
+                options: all, answer: [all.indexOf(correct)],
+                explain: '第 n 項 = 首項 + (n − 1) × 公差 = ' + a1 + ' + ' + (n - 1) + ' × ' + d + ' = ' + an + '。'
+            };
+        };
+        gen.fam = 'sg.seq';
+        fam(8, 'single', 'challenge', 0, 'n-IV-7', 2, gen);
+    }
+    // 負數的加減
+    {
+        const gen = (rnd) => {
+            const a = -(1 + Math.floor(rnd() * 20));
+            const b = -(1 + Math.floor(rnd() * 20));
+            const s = a + b;
+            const opts = [
+                a + ' + ' + b + ' = ' + s,
+                a + ' + ' + b + ' 的結果是負數',
+                a + ' + ' + b + ' = ' + (-s),
+                a + ' + ' + b + ' 的結果是正數'
+            ];
+            const correctTexts = [opts[0], opts[1]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於 ' + a + ' + ' + b + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '兩個負數相加，取相同的負號並把絕對值相加：' + a + ' + ' + b + ' = ' + s + '，結果仍為負數。'
+            };
+        };
+        gen.fam = 'ml.neg';
+        fam(8, 'multiple', 'basic', 0, 'n-IV-2', 2, gen);
+    }
+    // 指數律
+    {
+        const gen = (rnd) => {
+            const a = 2 + Math.floor(rnd() * 4);
+            const m = 2 + Math.floor(rnd() * 4);
+            const n = 2 + Math.floor(rnd() * 4);
+            const p = a * a, q = a * a * a;
+            const opts = [
+                a + '^' + m + ' × ' + a + '^' + n + ' = ' + a + '^' + (m + n),
+                a + '^' + m + ' × ' + a + '^' + n + ' = ' + a + '^' + (m * n),
+                a + '^' + m + ' ÷ ' + a + '^' + n + ' = ' + a + '^' + (m - n),
+                a + '^' + m + ' ÷ ' + a + '^' + n + ' = ' + a + '^' + (n - m)
+            ];
+            const correctTexts = [opts[0], opts[2]];
+            const order = shuffleWithRnd(opts.map((x, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於指數律（' + a + ' > 0），下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(x => shuffled.indexOf(x)).sort((a2, b2) => a2 - b2),
+                explain: '同底數相乘，指數相加：' + a + '^' + m + ' × ' + a + '^' + n + ' = ' + a + '^' + (m + n) + '；同底數相除，指數相減：' + a + '^' + m + ' ÷ ' + a + '^' + n + ' = ' + a + '^' + (m - n) + '。指數是相加相減，不是相乘。'
+            };
+        };
+        gen.fam = 'ml.exp';
+        fam(8, 'multiple', 'pro', 0, 'n-IV-3', 2, gen);
+    }
+    // 一元一次方程式
+    {
+        const gen = (rnd) => {
+            const a = 2 + Math.floor(rnd() * 7);
+            const x = 2 + Math.floor(rnd() * 9);
+            const b = 1 + Math.floor(rnd() * 15);
+            const c = a * x + b;
+            const opts = [
+                a + 'x + ' + b + ' = ' + c + ' 的解是 x = ' + x,
+                a + 'x + ' + b + ' = ' + c + ' 的解是 x = ' + (x + 1),
+                '將 ' + b + ' 移到等號右邊要變成減 ' + b,
+                a + 'x = ' + c + ' 的解是 x = ' + c
+            ];
+            const correctTexts = [opts[0], opts[2]];
+            const order = shuffleWithRnd(opts.map((y, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '解一元一次方程式 ' + a + 'x + ' + b + ' = ' + c + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(y => shuffled.indexOf(y)).sort((a2, b2) => a2 - b2),
+                explain: '等量公理：兩邊同減 ' + b + ' 得 ' + a + 'x = ' + (c - b) + '，再同除以 ' + a + ' 得 x = ' + x + '。移項時加號變減號、減號變加號。'
+            };
+        };
+        gen.fam = 'ml.eq';
+        fam(8, 'multiple', 'pro', 0, 'a-IV-2', 2, gen);
+    }
+    // 二元一次方程式
+    {
+        const gen = (rnd) => {
+            const a = 1 + Math.floor(rnd() * 5);
+            const b = 1 + Math.floor(rnd() * 5);
+            const x = 1 + Math.floor(rnd() * 7);
+            const y = 1 + Math.floor(rnd() * 7);
+            const c = a * x + b * y;
+            const opts = [
+                '(x, y) = (' + x + ', ' + y + ') 是 ' + a + 'x + ' + b + 'y = ' + c + ' 的一組解',
+                '(x, y) = (' + (x + 1) + ', ' + y + ') 是 ' + a + 'x + ' + b + 'y = ' + c + ' 的一組解',
+                a + 'x + ' + b + 'y = ' + c + ' 有無限多組解',
+                a + 'x + ' + b + 'y = ' + c + ' 只有唯一一組解'
+            ];
+            const correctTexts = [opts[0], opts[2]];
+            const order = shuffleWithRnd(opts.map((z, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                q: '關於二元一次方程式 ' + a + 'x + ' + b + 'y = ' + c + '，下列哪些敘述正確？（可多選）',
+                options: shuffled,
+                answer: correctTexts.map(z => shuffled.indexOf(z)).sort((a2, b2) => a2 - b2),
+                explain: '代入 x = ' + x + '、y = ' + y + '：' + a + ' × ' + x + ' + ' + b + ' × ' + y + ' = ' + c + '，成立。這個方程式在平面上是一條直線，直線上有無限多個點，所以有無限多組解；要有唯一解必須有兩個方程式聯立。'
+            };
+        };
+        gen.fam = 'ml.line';
+        fam(8, 'multiple', 'challenge', 0, 'a-IV-4', 2, gen);
+    }
+
 }
 
 

@@ -66,6 +66,7 @@ function materializeItem(item, rnd, withZhuyin) {
     }
     // Shuffle options and remap the answer indices, so option ORDER is never
     // memorisable either. (是非題 keeps its fixed 是/非 order.)
+    let optOrder = null;
     if (base.options.length > 2) {
         const idx = base.options.map((_, i) => i);
         for (let i = idx.length - 1; i > 0; i--) {
@@ -76,6 +77,8 @@ function materializeItem(item, rnd, withZhuyin) {
         const answerSet = new Set(base.answer.map(i => idx.indexOf(i)));
         base.options = shuffled;
         base.answer = [...answerSet].sort((a, b) => a - b);
+        // idx 是「洗牌後位置 → 原索引」，用它把注音排到跟選項同一個順序。
+        optOrder = idx;
     }
     return {
         id: item.id,
@@ -85,6 +88,13 @@ function materializeItem(item, rnd, withZhuyin) {
         // Annotations are produced only when the student's grade requires them.
         zhuyin: withZhuyin ? zhuyinOf(base.q) : null,
         options: base.options,
+        // 選項的注音：低年級看不懂選項就等於不會答，所以選項也要標。
+        // 是非題只有「是／非」，不必標。optOrder 讓注音跟著洗牌後的選項一起重排。
+        optionsZhuyin: (!withZhuyin || base.options.length <= 2) ? null
+            : base.options.map((o, pos) => {
+                const orig = optOrder ? optOrder[pos] : pos;
+                return (item.optionsZhuyin && item.optionsZhuyin[orig]) || zhuyinOf(o);
+            }),
         answer: base.answer,
         explanation: base.explain
     };
