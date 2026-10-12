@@ -84,12 +84,14 @@ function buildMath(push, nid) {
     ['tf.mul', 'tf.div'].forEach(fid => {
         const gen = (rnd) => {
             const mul = fid === 'tf.mul';
-            const b = 3 + Math.floor(rnd() * 9);
+            // n-I-4 的範圍是「九九乘法表」，兩個因數都應落在 2-9；
+            // 原本會抽到 11，等於在小一的卷子上考 11×11，超出課綱。
+            const b = 2 + Math.floor(rnd() * 8);
             let left, right;              // left op b = right（真正正確的等式）
-            if (mul) { left = 3 + Math.floor(rnd() * 9); right = left * b; }
+            if (mul) { left = 2 + Math.floor(rnd() * 8); right = left * b; }
             else {
                 // 商 c >= 1、被除數 c*b，保證整除且不出現 0
-                const c = 1 + Math.floor(rnd() * 12);
+                const c = 1 + Math.floor(rnd() * 9);
                 left = c * b; right = c;
             }
             const wrong = rnd() < 0.5;
