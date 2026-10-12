@@ -19,63 +19,59 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         /* 注音 (Bopomofo) rendering for lower-elementary questions.
-           Each character sits in a two-row cell: 注音 on top, 漢字 below, both
-           centred — so columns line up exactly like a 注音課本 grid instead of
-           floating <ruby> annotations with ad-hoc spacing.
-           區塊尺寸全部 MEASURED at runtime by measureZhuyinWidth():
-           - cell WIDTH  (--zy-cell): scan the widest 注音 syllable (e.g. ㄕㄤˋ);
-           - 注音 ROW HEIGHT (--zy-row): fixed px line box sized to the font's
-             real glyph metrics, tone marks (ˊˇˋ˙) fully inside, no clipping.
-           先看注音需要多寬多高，再決定文字格的寬與高。 */
-        .zy-line { line-height: 3.6; }   /* 行距 = cell約2.9字級 + 舒適餘量，捲行不互撞 */
+           每個字定格：漢字在左，**注音在右側**（同格同一行、垂直置中），非置頂疊字。
+           每格尺寸固定：寬 = 漢字 1em + 注音欄 --zy-w、
+                        高 = 注音行盒 --zy-row（量測最寬音節 ㄕㄤˋ 的行盒 + 呼吸）。
+           因為注音有固定欄位，不會把漢字擠到下一行（置頂疊字版會一行變兩行、難讀）。
+           尺寸由 measureZhuyinWidth() 先量再排版；字型載入後重量一次。
+           兩個變數的 em 基準不同，別搞混（搞混就會量了卻還是溢出）：
+             --zy-w   = 注音欄寬，基準 = **注音自身字級**（.zy-top 直接吃）
+             --zy-row = 格高，  基準 = **格字級**（.zy 直接吃）
+           --zy-ratio 是唯一的「注音級／格級」常數，CSS 與 JS 共用同一份。 */
+        :root { --zy-ratio: 0.75; }
+        /* 行距＝格高：--zy-row 在這裡以「容器字級」解析，和 .zy 的格字級同源
+           （.zy 不另設 font-size，繼承的就是這個容器字級），所以兩者恰好相等，
+           每列剛好一格高、列與列不會互相擠壓。
+           line-height 在 #qText 是行內樣式，因為該處同時掛了 Tailwind 的
+           text-lg / leading-relaxed，會蓋掉這條 class 規則（class 打不贏）。 */
+        .zy-line:not(#qText) { line-height: var(--zy-row, 1.9em); }
         .zy {
             display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-            vertical-align: bottom;
+            flex-direction: row;         /* 漢字在左、注音在右 */
+            align-items: center;         /* 兩者在格內垂直置中 */
             white-space: nowrap;
-            /* every character cell (漢字/數字/標點) uses the SAME measured width,
-               so the columns form an even grid like a 注音課本. */
-            width: var(--zy-cell, 3.25em);
-            margin: 0;
+            height: var(--zy-row, 1.9em);/* 格高固定 → 行距穩定 */
+            margin-right: 0.06em;        /* 格—格淨空 */
+        }
+        .zy-plain { margin-right: 0.02em; }   /* 無讀音的字（標點/數字）：不留注音欄 */
+        .zy-base {
+            /* 漢字行盒 = 自身字級（1em），CJK 墨跡入盒 */
+            line-height: 1;
         }
         .zy-top {
-            /* 注音列：盒高 = --zy-row（measureZhuyinWidth 量測字體
-               ascent+descent 後換算出的行盒需求）；
-               行盒 = font-size（line-height:1），字形溢出行盒的部分由
-               上下 padding 吸收：
-               - padding-top 0.2em → 聲符(ˊˇˋ˙)頂端絕不裁切；
-               - padding-bottom 0.5em → 與漢字列的淨空 ≈10px @16px 字級，
-                 兩列完全分離、上排下排都可讀不黏。 */
-            /* 注音列：盒高 = --zy-row = 量測(ascent+descent) + 可讀餘裕；
-               兩排淨空 ≈1.18×字級（F16 下 18.8px），聲符與漢字完全分離。 */
-            height: var(--zy-row, auto);
-            font-size: 0.75em;           /* 注音字級 = 0.75×格字級（實測公式同步） */
+            /* 注音欄：漢字右側；級 0.75×格字級；欄寬固定 → 各行的注音欄成一直線 */
+            font-size: var(--zy-ratio);  /* 注音字級 = 0.75×格字級 */
             color: #4f46e5;
             font-weight: 700;
             line-height: 1;
-            padding-top: 0.35em;         /* 相對自己 0.75em 字級：聲符頂端餘裕 +5.5px @F16 */
-            padding-bottom: 0.45em;      /* 與漢字列淨空 ≈+10px，兩列分離可讀 */
             letter-spacing: 0;
             white-space: nowrap;
+            width: var(--zy-w, 3.6em);   /* 最寬音節量測值，em 基準＝注音自身字級 */
+            margin-left: 0.1em;          /* 漢字—注音淨空 */
         }
-        .zy-base {
-            /* 漢字行盒 1.15×字級：CJK 墨跡完全入盒，不溢到上列淨空 */
-            line-height: 1.15;
-        }
-        /* original spaces between words use the SAME width as one cell */
-        .zy-gap { display: inline-block; width: var(--zy-cell, 3.25em); }
+        /* original spaces between words occupy one full cell so columns stay in sync */
+        .zy-gap { display: inline-block; width: calc(var(--zy-w, 3.6em) * var(--zy-ratio)); }
 
         /* hidden probe to MEASURE 注音 width/height; family+weight must match
-           .zy-top so metrics are representative (font-size pinned inline at 16px) */
+           .zy-top so metrics are representative (font-size pinned inline at 16px).
+           註：--zy-w 的 em 基準＝注音自身字級，所以量測也固定在 16px 量、除以 16。 */
         .zy-measure-probe {
             position: absolute;
             left: -9999px;
             top: 0;
             visibility: hidden;
             pointer-events: none;
-            font-size: 0.75em;
+            font-size: var(--zy-ratio);
             font-weight: 700;
             letter-spacing: 0;
             white-space: nowrap;
@@ -521,13 +517,20 @@
         const DIFF_WEIGHT = { basic: 1.00, pro: 1.15, challenge: 1.30 };
         const DIFF_LABEL = { basic: '基礎', pro: '進階', challenge: '挑戰' };
 
-        /* 先量注音寬度：字型載入(load)與主初始化(onload)各實測一次 */
+        /* 先量注音寬度：window load 與主初始化(onload)各實測一次。
+           注意：window load 不等於「字型就緒」。Inter 也含注音字形，未下載完時
+           量到的是 fallback 字型的寬度（實測最寬 64.0px vs 定案 55.4px，差 15%），
+           格子會白白寬一圈，所以 document.fonts.ready 之後必須重量一次。 */
         if (typeof window.addEventListener === 'function') {
             window.addEventListener('load', () => measureZhuyinWidth(false));
         }
+        if (typeof document !== 'undefined' && document.fonts && document.fonts.ready &&
+            typeof document.fonts.ready.then === 'function') {
+            document.fonts.ready.then(() => measureZhuyinWidth(true));
+        }
 
         window.onload = function() {
-            measureZhuyinWidth(true);   // 字型確定載入後，重新實測最寬注音
+            measureZhuyinWidth(true);   // 主初始化前先實測一次
             buildGradeSelect();
             loadStudentProfile();
             loadCandidates();
@@ -967,7 +970,7 @@
                                     <span class="font-bold text-xs ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}">第 ${qi + 1} 題 (${q.type === 'tf' ? '是非' : q.type === 'single' ? '單選' : '多選'})</span>
                                     <span class="text-xs px-2 py-0.5 rounded font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${isCorrect ? '答對' : '答錯'}</span>
                                 </div>
-                                <div class="text-sm font-medium text-slate-800">${title}</div>
+                                <div class="text-sm font-medium text-slate-800${q.zhuyin ? ' zy-line' : ''}">${title}</div>
                                 <div class="text-xs text-slate-600">作答：<span class="font-bold">${ansText(ua)}</span></div>
                                 <div class="text-xs text-emerald-700 font-bold">標準答案：${ansText(q.answer)}</div>
                             </div>`;
@@ -1378,12 +1381,14 @@
         // 注音 rendering: pair each Chinese character with its Bopomofo syllable.
         // `zhuyin` is a space-delimited list, one entry per character; empty
         // entries (digits, punctuation, latin) are rendered as plain characters.
-        /* ---- 注音格量測：寬、高都先看注音需要多少 ---------------------------
-           寬：掃注音表全部音節，固定 16px 取最寬者 M（如 ㄕㄤˋ）。
-           高：取 psutil 非正式取法——用 canvas measureText 的 FontBoundingBox
-           (ascent+descent) 得到该字体注音字形的真实行盒需求。
-           兩者換算成 em 寫入 --zy-cell / --zy-row；.zy / .zy-top / .zy-gap
-           都吃這組變數 → 注音先決定尺寸，文字格跟著對齊。
+        /* ---- 注音格量測：欄寬、格高都先看注音需要多少 ---------------------
+           寬：掃注音表全部音節，固定 16px 取最寬者 M（實測 ㄑㄧㄝˇ = 55.4px）。
+           高：canvas measureText 的 FontBoundingBox(ascent+descent) 取該字型
+           注音字形的真實行盒需求。
+           寫入兩個變數（em 基準不同，見上方 CSS 註解）：
+             --zy-w   = M / 16，基準 = 注音自身字級 → .zy-top、.zy-gap 吃
+             --zy-row = A / 16，基準 = 格字級       → .zy 吃
+           注音先決定尺寸，漢字跟著對齊（各行的注音欄成一直線）。
            無 DOM（Node 測試）/無注音表時安全跳過，沿用 fallback。 */
         let zyCellMeasured = false;
         function measureZhuyinWidth(force = false) {
@@ -1408,20 +1413,20 @@
                 probe.remove();
                 if (!max) return false;
 
-                /* --- 宽 cellEm ---
-                   .zy-top 实宽 = M × (0.75F / 16) ≤ cellEm × F
-                   → cellEm ≥ 0.75 × M / 16（F 消去，跨字级通用）。
-                   +0.12em 呼吸空间；限幅 [1.4, 3.6]em。 */
-                const topFontSizeRatio = 0.75;
+                /* --- 注音欄寬 cellEm（em 基準＝注音自身字級）---
+                   探針在 16px 量到最寬 M px → M/16 就是「自己的 em」，
+                   與格字級無關（.zy-top 自己會乘 --zy-ratio），所以不必再乘 0.75。
+                   +0.12em 呼吸空間；限幅 [2.4, 4.8]em。 */
+                const topFontSizeRatio = 0.75;   // 在 CSS 是 --zy-ratio，改動要兩邊同步
                 const probePx = 16;
                 const padEm = 0.12;
-                let cellEm = topFontSizeRatio * max / probePx + padEm;
-                cellEm = Math.min(Math.max(cellEm, 1.4), 3.6);
+                let cellEm = max / probePx + padEm;
+                cellEm = Math.min(Math.max(cellEm, 2.4), 4.8);
 
                 /* --- 高 topRowEm ---
-                   --zy-row 被 .zy-top 的 height 解析，em 基准 = .zy-top 自身
-                   字级 = 0.75×格字级 → 行盒需求 A@16px 需 ÷ (0.75×16) 换算成
-                   “自己的 em”，而非 ÷16（否则格级变了就漂）。 */
+                   --zy-row 被 .zy 的 height 解析，em 基准 = 格字级（.zy = 1em）
+                   → 行盒需求 A@16px 直接 ÷16 换回格 em（不要再 ÷0.75，
+                   那是舊版 .zy-top 吃這條變數時的寫法）。 */
                 let topRowPx = 0;
                 try {
                     const c2 = document.createElement('canvas').getContext('2d');
@@ -1439,15 +1444,15 @@
                     topRowPx = probe.getBoundingClientRect().height || 0;
                     probe.remove();
                 }
-                // A@16px → raw 自身 em，再加可讀餘裕 0.7em（上下排不擠）：
-                // msjh raw = 1.92 → 2.62em；全字型限幅 [2.4, 4.0]em。
-                const rowRaw = topRowPx ? topRowPx / (topFontSizeRatio * probePx) : 2.4;
-                const topRowEm = Math.min(Math.max(rowRaw + 0.7, 2.4), 4.0);
+                // A@16px → 格字級 em，再加可讀餘裕 0.5em（行與行不黏）：
+                // msjh raw = 1.92 → 2.42em；全字型限幅 [1.8, 3.4]em。
+                const rowRaw = topRowPx ? topRowPx / probePx : 2.4;
+                const topRowEm = Math.min(Math.max(rowRaw + 0.5, 1.8), 3.4);
 
-                document.documentElement.style.setProperty('--zy-cell', cellEm.toFixed(2) + 'em');
+                document.documentElement.style.setProperty('--zy-w', cellEm.toFixed(2) + 'em');
                 document.documentElement.style.setProperty('--zy-row', typeof topRowEm === 'number' ? topRowEm.toFixed(2) + 'em' : 'auto');
                 console.log('[zy] widest zhuyin =', widest, max.toFixed(0) + 'px',
-                    '→ --zy-cell:', cellEm.toFixed(2) + 'em',
+                    '→ --zy-w:', cellEm.toFixed(2) + 'em',
                     '| 注音行盒:', topRowPx.toFixed(1) + 'px', '→ --zy-row:', topRowEm);
                 zyCellMeasured = true;
                 return true;
@@ -1474,11 +1479,15 @@
                 const sy = (syls[i] || '').trim();
                 // Word gaps become a fixed-width spacer so the grid stays aligned.
                 if (ch === ' ' || ch === '\u3000') { html += '<span class="zy-gap"></span>'; continue; }
-                // EVERY character gets a fixed-width cell. Cells without a reading
-                // (digits, punctuation, latin) still keep the empty top row, so all
-                // 漢字 share one clean baseline — no floating ruby, no jitter.
-                html += `<span class="zy"><span class="zy-top">${esc(sy)}</span>` +
-                    `<span class="zy-base">${esc(ch)}</span></span>`;
+                // EVERY character gets a cell: 漢字在左、注音在右（同行）。
+                // 無讀音的字（標點、數字、拉丁）只佔漢字格寬，不留空的注音欄，
+                // 否則每個標點後面都會多出一段空白。
+                if (!sy) {
+                    html += `<span class="zy zy-plain"><span class="zy-base">${esc(ch)}</span></span>`;
+                    continue;
+                }
+                html += `<span class="zy"><span class="zy-base">${esc(ch)}</span>` +
+                    `<span class="zy-top">${esc(sy)}</span></span>`;
             }
             return html;
         }
@@ -1496,9 +1505,12 @@
             const qTextEl = document.getElementById('qText');
             if (q.zhuyin) {
                 qTextEl.classList.add('zy-line');
+                // 行距＝格高；用行內樣式才蓋得過 text-lg / leading-relaxed
+                qTextEl.style.lineHeight = 'var(--zy-row, 1.9em)';
                 qTextEl.innerHTML = renderZhuyin(q.title, q.zhuyin);
             } else {
                 qTextEl.classList.remove('zy-line');
+                qTextEl.style.lineHeight = '';   // 還原給 Tailwind 的 leading-relaxed
                 qTextEl.textContent = q.title;
             }
 
