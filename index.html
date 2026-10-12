@@ -718,7 +718,6 @@
             // 並在同一階段內優先取最接近受測年級的題。難度分層不受影響：
             // 調整發生在 byDiff 分層「之後」，且難度配額是分層取用的。
             const preferScope = (arr) => {
-                if (subjectId !== 'math') return arr;
                 const floor = targetGrade - 2;
                 return arr.map((it, i) => {
                     const sc = (typeof it.scope === 'number') ? it.scope : targetGrade;
