@@ -116,7 +116,11 @@ function buildChinese() {
         const multipleExtra = [
             { diff: 'basic', q: '下列哪些是「標點符號」？(可多選)', options: ['逗號', '句號', '問號', '書名'], answer: [0, 1, 2], explain: '逗號、句號、問號是標點符號；書名是名詞。' },
             { diff: 'pro', q: '下列哪些句子使用了「設問」修辭？(可多選)', options: ['什麼是幸福？幸福就是知足。', '難道我們不該努力嗎？', '今天天氣很好。', '你快樂嗎？', ], answer: [0, 1], explain: '設問是作者自問自答或提出問題引起注意，前兩項符合。' },
-            { diff: 'challenge', q: '下列哪些屬於「摹寫」修辭？(可多選)', options: ['視覺摹寫', '聽覺摹寫', '嗅覺摹寫', '誇張摹寫'], answer: [0, 1, 2], explain: '摹寫分為視覺、聽覺、嗅覺、味覺、觸覺，「誇張摹寫」不是分類。' }
+            { diff: 'challenge', q: '下列哪些屬於「摹寫」修辭？(可多選)', options: ['視覺摹寫', '聽覺摹寫', '嗅覺摹寫', '誇張摹寫'], answer: [0, 1, 2], explain: '摹寫分為視覺、聽覺、嗅覺、味覺、觸覺，「誇張摹寫」不是分類。' },
+            // 下面兩題是為了讓「basic 多選」有足夠的相異內容：expandVariants 會
+            // 循環填充，但循環出來的是同一題文字，同卷去重會把它丟掉，卷子就少一題。
+            { diff: 'basic', q: '下列哪些詞語可以用來形容「聲音」？(可多選)', options: ['宏亮', '沙啞', '方正', '清脆'], answer: [0, 1, 3], explain: '「宏亮」「沙啞」「清脆」都能形容聲音；「方正」形容形狀。' },
+            { diff: 'basic', q: '下列哪些詞語是「量詞」？(可多選)', options: ['一「朵」花', '一「匹」馬', '一「張」紙', '一「美麗」花'], answer: [0, 1, 2], explain: '「朵」「匹」「張」都是量詞；「美麗」是形容詞，不是量詞。' }
         ];
         const tfAll = expandVariants(tf, 12, tfExtra);
         const singleAll = expandVariants(single, 12, singleExtra);
@@ -342,7 +346,11 @@ function buildEnglish() {
         const engMulExtra = [
             { diff: 'basic', q: 'Select all the animals.', options: ['dog', 'cat', 'desk', 'bird'], answer: [0, 1, 3], explain: 'Dog, cat, bird are animals; desk is furniture.' },
             { diff: 'pro', q: 'Select all the correct plural forms.', options: ['boxes', 'children', 'foots', 'mice'], answer: [0, 1, 3], explain: 'Foot → feet, not "foots".' },
-            { diff: 'challenge', q: 'Select all the sentences that are in the future tense.', options: ['I will call you tomorrow.', 'She is going to travel next week.', 'They played yesterday.', 'We shall meet soon.'], answer: [0, 1, 3], explain: 'The third sentence is past tense.' }
+            { diff: 'challenge', q: 'Select all the sentences that are in the future tense.', options: ['I will call you tomorrow.', 'She is going to travel next week.', 'They played yesterday.', 'We shall meet soon.'], answer: [0, 1, 3], explain: 'The third sentence is past tense.' },
+            // 讓 basic 多選有足夠相異內容（expandVariants 的循環填充是同一題文字，
+            // 同卷去重會丟掉，導致卷子少一題）。
+            { diff: 'basic', q: 'Select all the fruits.', options: ['apple', 'banana', 'chair', 'grape'], answer: [0, 1, 3], explain: 'Chair is furniture, not a fruit.' },
+            { diff: 'basic', q: 'Select all the words with a long "a" sound.', options: ['cake', 'rain', 'cat', 'day'], answer: [0, 1, 3], explain: '"Cat" has a short "a" sound.' }
         ];
         const tfAll = expandVariants(tf, 12, engTfExtra);
         const singleAll = expandVariants(single, 12, engSingleExtra);

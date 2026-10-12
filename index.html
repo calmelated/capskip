@@ -710,6 +710,27 @@
                 byDiff[d] = shuffle(fresh, rng).concat(shuffle(stale, rng));
             });
 
+            // 年級適切性排序（只重排、不刪除，所以不可能把題池抽乾）：
+            // 數學題庫是「累積式」的——targetGrade=N 的桶同時裝著 scope 2/4/6/8 的題，
+            // 而上面只擋了上界（scope > targetGrade）。若不排序，國中卷會被 shuffle
+            // 塞進一堆 scope 2 的國小題（實測 target 8 有 40% 是 scope 2）。
+            // 這裡把「早於本學習階段」的題（scope < target-2）沉到後面，
+            // 並在同一階段內優先取最接近受測年級的題。難度分層不受影響：
+            // 調整發生在 byDiff 分層「之後」，且難度配額是分層取用的。
+            const preferScope = (arr) => {
+                if (subjectId !== 'math') return arr;
+                const floor = targetGrade - 2;
+                return arr.map((it, i) => {
+                    const sc = (typeof it.scope === 'number') ? it.scope : targetGrade;
+                    const below = sc < floor ? 1 : 0;            // 落後本學習階段
+                    const dist = below ? 0 : Math.abs(targetGrade - sc);
+                    return { it, i, below, dist };
+                }).sort((a, b) =>
+                    a.below - b.below || a.dist - b.dist || a.i - b.i
+                ).map(o => o.it);
+            };
+            Object.keys(byDiff).forEach(d => { byDiff[d] = preferScope(byDiff[d]); });
+
             const taken = [];
             const takenIds = new Set();
             const sigCount = {};   // 同卷內 (type|簽名) 已取計數
@@ -735,9 +756,9 @@
 
             // Second pass: top up from any remaining item, any difficulty
             if (taken.length < need) {
-                const rest = shuffle(
+                const rest = preferScope(shuffle(
                     tiers.reduce((acc, t) => acc.concat(byDiff[t]), []), rng
-                );
+                ));
                 for (const it of rest) {
                     if (taken.length >= need) break;
                     take(it);
@@ -784,8 +805,14 @@
             plan.forEach(({ type, count }) => {
                 if (count <= 0) return;
                 const quota = diffQuota(count, bp.diff);
-                const picked = drawItems(poolSubject, targetGrade, type, count, quota, rng, sp ? sp.domain : null);
+                // 多抽幾題當備援：去重會把重複的題目丟掉，若只抽剛好的數量，
+                // 被丟掉的那一格就永遠補不回來（實測每卷少 0.5-1.5 題）。備援讓
+                // 後面抽到的題遞補上來，卷子才能維持藍圖要的題數。
+                const SPARE = 6;
+                const picked = drawItems(poolSubject, targetGrade, type, count + SPARE, quota, rng, sp ? sp.domain : null);
+                let placed = 0;
                 picked.forEach((it) => {
+                    if (placed >= count) return;
                     // Materialise the template with this paper's RNG so the
                     // numbers, options and answers are fresh every attempt.
                     // Retry a few times to avoid colliding with a question
@@ -808,6 +835,7 @@
                         if (usedVariant.has(hash) || kw) return; // drop the duplicate / out-of-scope
                     }
                     usedVariant.add(hash);
+                    placed++;
                     questions.push({
                         id: m.id,
                         tpl: m.tpl,
@@ -827,10 +855,19 @@
         }
 
         // A cheap fingerprint of a materialised question. Two draws of the same
-        // template with different numbers/order produce different hashes, so the
+        // template with different numbers produce different hashes, so the
         // used-item memory can tell "same template, new question" from a repeat.
+        //
+        // 選項順序每次物化都會被打亂（makeDiscriminators），所以簽名必須「與順序無關」：
+        // 用排序後的「選項文字 + 是否正確」當依據。否則同一題只是換了選項順序，
+        // 就會被當成新題而放進同一張卷子（實測占同卷 3-7%）。
         function variantHashOf(q) {
-            const s = q.title + '|' + q.options.join('|') + '|' + q.answer.join(',');
+            const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, '');
+            const ans = q.answer || [];
+            const opts = (q.options || [])
+                .map((o, i) => norm(o) + (ans.indexOf(i) >= 0 ? '=1' : '=0'))
+                .sort();
+            const s = norm(q.title) + '||' + opts.join('|');
             let h = 5381;
             for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
             return h.toString(36);

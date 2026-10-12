@@ -78,26 +78,36 @@ function buildMath(push, nid) {
             : fam(2, 'tf', 'basic', 0, 'n-I-2', 4, gen);
     });
     // S1 乘除法算式判斷
+    // 除法是「被除數 ÷ 除數 = 商」，乘積位置放的是商（c），不是乘積（c×b）：
+    // 若題面寫成 (c×b) ÷ b = c×b，該算式本身為假，却被 answer 標成「是」，
+    // 學生答對反而被扣分。這裡先把除法的左運算元與商分開。
     ['tf.mul', 'tf.div'].forEach(fid => {
         const gen = (rnd) => {
             const mul = fid === 'tf.mul';
-            const a = 3 + Math.floor(rnd() * 9), b = 3 + Math.floor(rnd() * 9);
-            const right = mul ? a * b : (4 + Math.floor(rnd() * 9)) * b; // 除法取整除情形
-            const divisor = mul ? b : b;
-            const dividend = mul ? a : Math.floor(right);
+            const b = 3 + Math.floor(rnd() * 9);
+            let left, right;              // left op b = right（真正正確的等式）
+            if (mul) { left = 3 + Math.floor(rnd() * 9); right = left * b; }
+            else {
+                // 商 c >= 1、被除數 c*b，保證整除且不出現 0
+                const c = 1 + Math.floor(rnd() * 12);
+                left = c * b; right = c;
+            }
             const wrong = rnd() < 0.5;
             const shown = wrong ? right + 1 + Math.floor(rnd() * 3) : right;
+            const op = mul ? ' × ' : ' ÷ ';
             return {
-                q: '判斷算式是否正確：' + dividend + (mul ? ' × ' : ' ÷ ') + divisor + ' = ' + shown,
+                q: '判斷算式是否正確：' + left + op + b + ' = ' + shown,
                 options: ['是', '非'],
                 answer: [wrong ? 1 : 0],
                 explain: wrong
-                    ? '不正確。' + dividend + (mul ? ' × ' : ' ÷ ') + divisor + ' 應為 ' + right + '，題目寫成 ' + shown + '。'
-                    : '正確。' + dividend + (mul ? ' × ' : ' ÷ ') + divisor + ' = ' + right + '。'
+                    ? '不正確。' + left + op + b + ' 應為 ' + right + '，題目寫成 ' + shown + '。'
+                    : '正確。' + left + op + b + ' = ' + right + '。'
             };
         };
         gen.fam = fid;
-        fam(2, 'tf', 'basic', 0, mul_src(fid), 4, gen);
+        // tf.div 的課綱代碼是 n-II-3（S2，3-4 年級），scope 跟著代碼走，
+        // 不能停在 2（S1），否則小二就會考到三年級的除法。
+        fam(fid === 'tf.div' ? 4 : 2, 'tf', 'basic', 0, mul_src(fid), 4, gen);
     });
     // S1 加減法比較大小
     {
@@ -139,7 +149,8 @@ function buildMath(push, nid) {
             };
         };
         gen.fam = fid;
-        fam(2, 'tf', 'basic', 0, i === 0 ? 'n-I-6' : 'n-II-6', 3, gen);
+        // tf.frac2 自己標的是 n-II-6（S2），註冊到 4；tf.frac 是 n-I-6（S1）留在 2。
+        fam(i === 0 ? 2 : 4, 'tf', 'basic', 0, i === 0 ? 'n-I-6' : 'n-II-6', 3, gen);
     });
     // S1 整數奇偶性
     {
@@ -189,7 +200,8 @@ function buildMath(push, nid) {
             };
         };
         gen.fam = 'tf.unit';
-        fam(2, 'tf', 'basic', 0, 'n-II-9', 4, gen);
+        // n-II-9 是 S2（3-4 年級）的單位換算，不是 S1，scope 改 4。
+        fam(4, 'tf', 'basic', 0, 'n-II-9', 4, gen);
     }
     // S1 估算與推理（pro，from 2：供低年級 pro 配額）
     {
