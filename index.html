@@ -32,16 +32,19 @@
              --zy-row = 格高，  基準 = **格字級**（.zy 直接吃）
            --zy-ratio 是唯一的「注音級／格級」常數，CSS 與 JS 共用同一份。 */
         :root {
-            /* 注音級 ÷ 格級。0.5：注音是「符號」不是「字」，疊在字旁邊本來就該
-               比國字小；一格高度＝層數×ratio，ratio 越小整格越扁，
-               國字相對就越大。 */
-            --zy-ratio: 0.5;
-            /* 有注音的段落字要放大：注音疊在字旁邊，若沿用原本的字級
+            /* 注音級 ÷ 格級。**注音要維持原大小**，所以字放大時這個值必須反向縮小：
+               注音實際 px = 有注音段落字級 × 這個值，兩個相乘才是注音級。
+               上一版：21.44px × 0.6  = 12.864px
+               現在  ：27.20px × 0.473 = 12.866px   → 注音一個 px 都沒變
+               ⚠ 之後調 --zy-text-scale，這裡一定要同步反向調，否則注音會跟著變大。 */
+            --zy-ratio: 0.473;
+            /* 只放大「國字」：注音疊在字旁邊，若沿用原本的字級
                （題幹 18px、選項 14px）整個字會太小。
-               放大 1.6 倍（18→28.8px、14→22.4px）＝ 國小課本的字級，
-               格子也跟著等比放大，所以字變大、格子同時變寬變高。
+               放大 1.7 倍（18→30.6px、14→23.8px）。
+               ⚠ 為了讓注音大小維持不變，這個值放大 k 倍時 --zy-ratio 就要縮小
+               k 倍（1.34 → 1.7 搭配 0.6 → 0.473），兩者相乘＝注音級不變。
                註：只作用在有注音的段落，國中沒有注音的段落維持原字級。 */
-            --zy-text-scale: 1.6;
+            --zy-text-scale: 1.7;
             /* 有注音的字左右各留這麼多淨空（格字級 em）→ 整格加寬。
                沒有這個，國小字放大後每個字會擠在一起，注音欄也貼著下一個字。 */
             --zy-cell-pad: 0.14em;
@@ -1694,7 +1697,7 @@
                 optCard.innerHTML = `
                     <div class="flex items-center space-x-3">
                         <span class="w-7 h-7 rounded-lg border font-bold text-xs flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-600 border-slate-200'}">${letter}</span>
-                        <span class="text-sm font-medium${optZy ? ' zy-line' : ''}">${optZy ? renderZhuyin(optText, optZy) : optText}</span>
+                        <span class="text-sm font-medium${optZy ? ' zy-line' : ''}"${optZy ? ` style="line-height: calc(var(--zy-row, 2em) + 0.35em)"` : ''}>${optZy ? renderZhuyin(optText, optZy) : optText}</span>
                     </div>
                     <div class="text-indigo-600 text-base">${isSelected ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>'}</div>
                 `;
