@@ -48,8 +48,17 @@
         }
         .zy-plain { margin-right: 0.02em; }   /* 無讀音的字（標點/數字）：不留注音欄 */
         .zy-base {
-            /* 漢字行盒 = 自身字級（1em），CJK 墨跡入盒 */
+            /* 國字行盒 = 自身字級（1em），CJK 墨跡入盒。
+               高度撐滿整格（與注音欄同高）→ 每格的國字格與注音欄等高，
+               排列起來是整齊的方格，不會因為注音層數不同而高低不一。 */
             line-height: 1;
+            /* 用 align-self: stretch 撐滿格高，不要寫 height: var(--zy-row)——
+               --zy-row 是「格字級」em，而 .zy-top 的 font-size 是 0.6×格字級，
+               同一個變數在兩邊解析出來的高度差 1/ratio 倍（實測 43.2 vs 25.9px）。
+               stretch 直接吃 .zy 的高度，兩者必然等高。 */
+            align-self: stretch;
+            display: flex;
+            align-items: center;         /* 國字在格內垂直置中 */
         }
         .zy-top {
             /* 注音欄：國字右側，欄內符號**由上往下直排**（一年級課本排法）。
@@ -69,11 +78,24 @@
             display: flex;
             flex-direction: column;      /* 符號直排：ㄒ／ㄧ／ㄚ／ˋ 由上往下疊 */
             align-items: center;
-            justify-content: center;
+            justify-content: center;     /* 與國字一樣置中：國字在格內居中，
+                                            注音若從格頂排會凸到國字上方、對不齊 */
+            /* 撐滿格高 → 每格注音欄**等高**、且與國字格同高。
+               同樣用 align-self: stretch 而非 height: var(--zy-row)，
+               理由見 .zy-base（em 基準不同會被多除一次 ratio）。 */
+            align-self: stretch;
+            box-sizing: border-box;
         }
         .zy-sym {
-            display: block;              /* 每個符號自己一層 */
-            line-height: 0.92;           /* 層高 = 0.92 × 注音字級 */
+            /* 每個符號自己一層，層高固定 → 2 層與 4 層的間距一致。
+               層高 = --zy-sym-h（JS 量測最長音節後寫入，CSS fallback 0.6em）。
+               注音字級是 calc(1em * --zy-ratio)，所以層高跟著注音字級走。 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: var(--zy-sym-h, 0.6em);
+            line-height: 1;
+            flex: 0 0 auto;
         }
         /* original spaces between words occupy one full cell so columns stay in sync */
         .zy-gap { display: inline-block; width: calc(var(--zy-w, 0.6em) * var(--zy-ratio)); }
@@ -1464,7 +1486,7 @@
              --zy-row = 4 層總高，  基準 = 格字級       → .zy 吃
            無 DOM（Node 測試）/無注音表時安全跳過，沿用 CSS fallback。 */
         const ZY_MAX_STACK = 4;      // 音節最多幾個符號（由 zhuyin-table.json 實測）
-        const ZY_SYM_LEADING = 0.92; // 每層行高倍率，與 .zy-sym 的 line-height 同源
+        // 每層的高度由 --zy-sym-h 決定（JS 量測後寫入），CSS fallback 0.6em。
         let zyCellMeasured = false;
         function measureZhuyinWidth(force = false) {
             if (zyCellMeasured && !force) return true;
@@ -1503,38 +1525,42 @@
                 colEm = Math.min(Math.max(colEm, 0.45), 1.3);
 
                 /* --- 格高 rowEm（em 基準＝格字級）---
-                   4 層 × 0.92 × 注音字級 --zy-ratio，用探針實測每層高度較穩。
+                   4 層 × 每層固定高（--zy-sym-h），用探針實測每層高度較穩。
                    另外量一顆國字的高度當下限：注音疊起來不該比國字矮太多，
                    否則國字會凸出格子、列與列黏在一起。 */
                 probe.textContent = '國';
                 const hanPx = probe.getBoundingClientRect().height || probePx;
-                // 一個符號一層的真實行盒（.zy-sym 是 block + line-height .92）。
+                // 一個符號一層的真實行盒（.zy-sym 是 flex + line-height 1）。
                 // **必須把探針縮到注音字級再量**：探針若留在 16px，量到的是
-                // 未縮小的層高，格高會多算 1/ratio 倍（實測 3.68em vs 正確 2.02em）。
+                // 未縮小的層高，格高會多算 1/ratio 倍（實測 3.67em vs 正確 2.20em）。
                 // ratio 直接讀 CSS 的 --zy-ratio（唯一真相來源），不要在 JS 再寫一份，
                 // 否則改一邊另一邊不會跟著動。
                 const ratio = parseFloat(
                     getComputedStyle(document.documentElement).getPropertyValue('--zy-ratio')
                 ) || 0.55;
-                probe.style.fontSize = (probePx * ratio) + 'px';
+                const symPx = probePx * ratio;   // 注音字級 px
+                probe.style.fontSize = symPx + 'px';
                 probe.style.display = 'block';
-                probe.style.lineHeight = String(ZY_SYM_LEADING);
+                probe.style.lineHeight = '1';
                 probe.textContent = 'ㄕ';
-                const symRowPx = probe.getBoundingClientRect().height || 0;
+                const symRowPx = probe.getBoundingClientRect().height || symPx;
                 probe.style.display = '';
                 probe.style.lineHeight = '';
                 probe.remove();
                 if (!max) return false;
 
-                // symRowPx 是在「注音字級」量到的層高 px。探針的基準字級是
-                // probePx（格字級），所以要 ÷ probePx 才換成格字級 em——
-                // 除以 (probePx × ratio) 會多算 1/ratio 倍（實測 3.67em vs 正確 2.21em）。
-                const symRowEm = (symRowPx || probePx * ratio * ZY_SYM_LEADING) / probePx;
-                const stackEm = symRowEm * ZY_MAX_STACK;
-                // 至少留國字高的 1.15 倍，行與行之間才有呼吸
-                const rowEm = Math.max(stackEm, (hanPx / probePx) * 1.15);
+                /* 層高要「固定」，否則 2 層與 4 層的注音欄不一樣高、每格高低不齊。
+                   --zy-sym-h 的 em 基準＝注音自身字級（.zy-sym 繼承 .zy-top 的字級），
+                   所以一層 = symRowPx / symPx 個注音 em（line-height:1 → 1em）。
+                   --zy-row 的 em 基準＝格字級，所以再乘 ratio：
+                     4 層 × 1em × 0.6 = 2.4em ＝ 格高。
+                   這樣 4 層的音節剛好填滿整格，2 層的也佔滿同一個格子（上緣對齊）。 */
+                const symHEm = symRowPx / symPx;            // 一層（注音 em）
+                const symHEmCell = symHEm * ratio;          // 一層（格 em）
+                const rowEm = symHEmCell * ZY_MAX_STACK;    // 格高＝最長音節剛好填滿
 
                 document.documentElement.style.setProperty('--zy-w', colEm.toFixed(2) + 'em');
+                document.documentElement.style.setProperty('--zy-sym-h', symHEm.toFixed(3) + 'em');
                 document.documentElement.style.setProperty('--zy-row', rowEm.toFixed(2) + 'em');
                 console.log('[zy] 直排注音：最寬符號 =', widest, max.toFixed(2) + 'px',
                     '→ --zy-w:', colEm.toFixed(2) + 'em',
