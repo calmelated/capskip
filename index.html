@@ -78,8 +78,11 @@
             display: flex;
             flex-direction: column;      /* 符號直排：ㄒ／ㄧ／ㄚ／ˋ 由上往下疊 */
             align-items: center;
-            justify-content: center;     /* 與國字一樣置中：國字在格內居中，
-                                            注音若從格頂排會凸到國字上方、對不齊 */
+            justify-content: space-evenly; /* **不論幾個音符都撐滿整格**（課本排法）：
+                                            1 層的 ㄙ 和 4 層的 ㄒㄧㄚˋ 佔一樣高，
+                                            層與層之間自動平均分配間距。
+                                            用 flex-start/center 的話，層數少的音節
+                                            只佔上半截，跟旁邊的字不會同等高度。 */
             /* 撐滿格高 → 每格注音欄**等高**、且與國字格同高。
                同樣用 align-self: stretch 而非 height: var(--zy-row)，
                理由見 .zy-base（em 基準不同會被多除一次 ratio）。 */
@@ -87,9 +90,9 @@
             box-sizing: border-box;
         }
         .zy-sym {
-            /* 每個符號自己一層，層高固定 → 2 層與 4 層的間距一致。
-               層高 = --zy-sym-h（JS 量測最長音節後寫入，CSS fallback 0.6em）。
-               注音字級是 calc(1em * --zy-ratio)，所以層高跟著注音字級走。 */
+            /* 每個符號自己一層。高度＝注音字級的一層（--zy-sym-h），
+               不寫死格高——層與層之間的彈性間距由 .zy-top 的
+               justify-content: space-evenly 分配，所以 1 層與 4 層都佔滿整格。 */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1486,7 +1489,9 @@
              --zy-row = 4 層總高，  基準 = 格字級       → .zy 吃
            無 DOM（Node 測試）/無注音表時安全跳過，沿用 CSS fallback。 */
         const ZY_MAX_STACK = 4;      // 音節最多幾個符號（由 zhuyin-table.json 實測）
-        // 每層的高度由 --zy-sym-h 決定（JS 量測後寫入），CSS fallback 0.6em。
+        // 格高 = ZY_MAX_STACK 層 + 層距。層距留給 .zy-top 的 space-evenly 分配，
+        // 所以 1 層的 ㄙ 與 4 層的 ㄒㄧㄚˋ 都撐滿同一個格高（課本排法）。
+        const ZY_STACK_FILL = 1.25;
         let zyCellMeasured = false;
         function measureZhuyinWidth(force = false) {
             if (zyCellMeasured && !force) return true;
@@ -1557,7 +1562,9 @@
                    這樣 4 層的音節剛好填滿整格，2 層的也佔滿同一個格子（上緣對齊）。 */
                 const symHEm = symRowPx / symPx;            // 一層（注音 em）
                 const symHEmCell = symHEm * ratio;          // 一層（格 em）
-                const rowEm = symHEmCell * ZY_MAX_STACK;    // 格高＝最長音節剛好填滿
+                // 格高 = 4 層 + 層距（ZY_STACK_FILL）。層距是必須的：注音欄用
+                // space-evenly 撐滿整格，若格高剛好等於 4 層，間距為 0、4 層會黏成一團。
+                const rowEm = symHEmCell * ZY_MAX_STACK * ZY_STACK_FILL;
 
                 document.documentElement.style.setProperty('--zy-w', colEm.toFixed(2) + 'em');
                 document.documentElement.style.setProperty('--zy-sym-h', symHEm.toFixed(3) + 'em');
