@@ -367,7 +367,7 @@
             <!-- Right Question Content View -->
             <div class="flex-grow bg-slate-100 p-4 sm:p-8 overflow-y-auto custom-scrollbar flex flex-col justify-between">
                 
-                <div class="max-w-3xl mx-auto w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 relative">
+                <div class="max-w-3xl mx-auto w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 relative overflow-x-auto">
                     
                     <!-- Question Header Tag & Flag -->
                     <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
@@ -449,7 +449,7 @@
             </div>
 
             <!-- Questions Review List -->
-            <div class="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-4" id="resultQuestionsList">
+            <div class="flex-grow p-6 overflow-y-auto overflow-x-auto custom-scrollbar space-y-4" id="resultQuestionsList">
                 <!-- Detailed question analysis cards -->
             </div>
 
@@ -479,7 +479,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="flex-grow p-6 overflow-y-auto custom-scrollbar" id="attemptHistoryBody">
+            <div class="flex-grow p-6 overflow-y-auto overflow-x-auto custom-scrollbar" id="attemptHistoryBody">
                 <!-- History attempt cards injected via JS -->
             </div>
             <div class="p-4 bg-slate-100 border-t border-slate-200 flex justify-end">
@@ -584,6 +584,10 @@
 
         // Seconds allowed per question, by type
         const TIME_BASE = { tf: 25, single: 40, multiple: 70 };
+        // 長題（一段閱讀材料）多出來的閱讀時間。加在 DIFF_WEIGHT 之外，
+        // 因為那是「難度」的權重，跟「要讀多少字」是兩件事：
+        // 一段 150 字的題幹跟一行題幹，難度可能同級但閱讀時間差很多。
+        const TIME_LONG_BONUS = { tf: 30, single: 60, multiple: 90 };
         // Difficulty multiplier
         const DIFF_WEIGHT = { basic: 1.00, pro: 1.15, challenge: 1.30 };
         const DIFF_LABEL = { basic: '基礎', pro: '進階', challenge: '挑戰' };
@@ -628,22 +632,41 @@
             sel.value = (saved && saved.grade && +saved.grade >= MIN_GRADE && +saved.grade <= MAX_GRADE) ? String(saved.grade) : '4';
         }
 
+        // 每卷的長題（一段閱讀材料）題數：從總題數算出來的比例，所以
+// bp.total 不變時長題數也不變——這是一行可測的不變式。
+        // 5–10% 是使用者指定的區間；四捨五入後各年段落在 5.6%–9.4%。
+        const LONG_SHARE = 0.08;
+        const longOf = (total) => Math.max(1, Math.round(total * LONG_SHARE));
+
         function calcPaperBlueprint(targetGrade) {
             const g = targetGrade;
-            if (g <= 2)  return { total: 18, tf: 6, single: 6, multiple: 6,  diff: { basic: 0.60, pro: 0.30, challenge: 0.10 } };
-            if (g === 3) return { total: 22, tf: 8, single: 6, multiple: 8,  diff: { basic: 0.55, pro: 0.35, challenge: 0.10 } };
-            if (g <= 5)  return { total: 26, tf: 8, single: 8, multiple: 10, diff: { basic: 0.45, pro: 0.40, challenge: 0.15 } };
-            if (g <= 7)  return { total: 30, tf: 8, single: 10, multiple: 12, diff: { basic: 0.40, pro: 0.40, challenge: 0.20 } };
-            return         { total: 32, tf: 8, single: 12, multiple: 12, diff: { basic: 0.30, pro: 0.45, challenge: 0.25 } };
+            // 難度比例刻意隨年段拉開（低年級寬鬆、國中陡峭）。
+            //
+            // 舊值是 60/30/10 一路收到 30/45/25，鑑別度不足：basic 佔比太高，
+            // 中段學生全部答對、高段學生也全部答對，卷子分不出兩群人。
+            // 現在把 challenge 從 10%/10%/15%/20%/25% 拉到 15%/15%/20%/25%/32%，
+            // 同時把 basic 壓下來，讓「通過」這件事真正需要理解而非熟練。
+            //
+            // 敢拉這麼開的實測依據：兩種版本要補的題數幾乎一樣（激進版 37 題
+            // vs 保守版 34 題）——瓶頸是本來就很薄的 challenge 池，不是比例本身。
+            // 既然代價相同，就採鑑別度高的那個。
+            if (g <= 2)  return { total: 18, tf: 6, single: 6, multiple: 6,  long: longOf(18), diff: { basic: 0.50, pro: 0.35, challenge: 0.15 } };
+            if (g === 3) return { total: 22, tf: 8, single: 6, multiple: 8,  long: longOf(22), diff: { basic: 0.50, pro: 0.35, challenge: 0.15 } };
+            if (g <= 5)  return { total: 26, tf: 8, single: 8, multiple: 10, long: longOf(26), diff: { basic: 0.35, pro: 0.45, challenge: 0.20 } };
+            if (g <= 7)  return { total: 30, tf: 8, single: 10, multiple: 12, long: longOf(30), diff: { basic: 0.28, pro: 0.47, challenge: 0.25 } };
+            return         { total: 32, tf: 8, single: 12, multiple: 12, long: longOf(32), diff: { basic: 0.20, pro: 0.48, challenge: 0.32 } };
         }
 
         // 國中分科試卷（生命科學/物質科學/歷史地理/公民與社會）：在同期綜合科
         // 藍圖上減量——每個細科只抽半張卷（-16 題：是非 -4、單選 -6、多選 -6），
         // 因為題庫以「綜合科 + dom 標記」保存，先分流再抽題，量池深度允許半卷。
         function splitPaperBlueprint(baseBp) {
+            // 長題數也要跟著減。分科卷是同一份藍圖減 16 題，不是另一份藍圖；
+            // 若照抄 baseBp.long，分科卷的長題佔比會是 3/16 = 19%，爆出 5–10% 的區間。
+            const total = baseBp.total - 16;
             return {
-                total: baseBp.total - 16, tf: baseBp.tf - 4, single: baseBp.single - 6,
-                multiple: baseBp.multiple - 6, diff: baseBp.diff
+                total: total, tf: baseBp.tf - 4, single: baseBp.single - 6,
+                multiple: baseBp.multiple - 6, long: longOf(total), diff: baseBp.diff
             };
         }
 
@@ -660,26 +683,77 @@
                 out[fracs[p % fracs.length].i]++;
                 used++; p++;
             }
-            // If a tier has no items, push its quota to the nearest available tier
             return { basic: out[0], pro: out[1], challenge: out[2] };
+        }
+
+        // 把「整份卷子」的難度配額配到各題型的欄位上。
+        //
+        // 為什麼不能沿用 diffQuota 逐題型算：diffQuota(count=6) 在 60/30/10 下
+        // 取整得到 3/1/0，再把餘數給小數最大的兩格 → 3/2/1 = 50/33/17。三個題型
+        // 各做一次，整份卷子就變成 50/33/17，藍圖寫的比例從來沒有實現過。
+        // 這裡改成「整卷先算列（basic/pro/challenge 總數），再把列配到欄」，
+        // 逐列逐欄追蹤剩餘容量，所以取整不會多出或少掉題目：
+        //   每列總和 = row[d]、每欄總和 = cols[t]、全部總和 = 藍圖總題數。
+        function allocMatrix(row, cols) {
+            const types = ['tf', 'single', 'multiple'];
+            const tiers = ['basic', 'pro', 'challenge'];
+            const remain = {};
+            types.forEach(t => { remain[t] = cols[t] || 0; });
+            const m = { basic: {}, pro: {}, challenge: {} };
+            tiers.forEach(d => {
+                const want = row[d] || 0;
+                const cap = types.reduce((a, t) => a + remain[t], 0);
+                if (want <= 0 || cap <= 0) { types.forEach(t => { m[d][t] = 0; }); return; }
+                // 依各欄「剩餘容量」比例分配（不是依原始欄位大小，否則先配的列
+                // 會把容量塞爆，後面的列無處可去）
+                const raw = types.map(t => want * remain[t] / cap);
+                const cell = {};
+                types.forEach((t, i) => { cell[t] = Math.min(Math.floor(raw[i]), remain[t]); });
+                let used = types.reduce((a, t) => a + cell[t], 0);
+                const frac = types.map((t, i) => ({ t, f: raw[i] - Math.floor(raw[i]) }))
+                    .sort((a, b) => b.f - a.f);
+                let p = 0;
+                while (used < want && p < 1000) {
+                    const c = frac[p % frac.length];
+                    if (cell[c.t] < remain[c.t]) { cell[c.t]++; used++; }
+                    p++;
+                }
+                types.forEach(t => { m[d][t] = cell[t]; remain[t] -= cell[t]; });
+            });
+            return m;
         }
 
         // Lightweight synthetic question list used only to estimate a paper's
         // time limit for the dashboard preview (does not touch the item pool).
         function previewQuestions(subjectId, targetGrade, bp) {
-            const mix = { basic: bp.diff.basic, pro: bp.diff.pro, challenge: bp.diff.challenge };
+            // 用跟 generatePaper 同一套 allocMatrix，否則儀表板預估的時間上限
+            // （updateProfileUI → calcTimeLimit）算的是另一份不存在的卷子：
+            // 舊寫法 i/n 配 60/30/10，每型只會產出 basic 5 + pro 1、永遠沒有
+            // challenge，跟真正抽出來的卷子分佈不同。
+            const row = diffQuota(bp.total, bp.diff);
+            const m = allocMatrix(row, { tf: bp.tf, single: bp.single, multiple: bp.multiple });
             const out = [];
-            const add = (type, n) => {
-                for (let i = 0; i < n; i++) {
-                    // Rotate difficulty by the blueprint ratio
-                    const r = i / Math.max(1, n);
-                    let d = 'basic';
-                    if (r >= mix.basic + mix.pro) d = 'challenge';
-                    else if (r >= mix.basic) d = 'pro';
-                    out.push({ type, diff: d });
+            ['tf', 'single', 'multiple'].forEach(type => {
+                const n = bp[type] || 0;
+                // 依列展開，再用差額微調到剛好 bp[type] 題（列總和已等於 bp.total）
+                const bucket = ['basic', 'pro', 'challenge'].flatMap(d =>
+                    Array.from({ length: m[d][type] || 0 }, () => d));
+                while (bucket.length < n) bucket.push('basic');
+                // 標出本型的長題名額，讓 calcTimeLimit 的長題加成算得出來。
+                // 長題一律落在 pro/challenge，所以從這兩個難度各挑一格標 long；
+                // 這是預估值，跟真正抽到的題目是否為長題無關。
+                const wantLong = longPerType(bp.long, type);
+                const picks = [];
+                for (const d of ['pro', 'challenge']) {
+                    for (let i = 0; i < (m[d][type] || 0) && picks.length < wantLong; i++) picks.push(d);
                 }
-            };
-            add('tf', bp.tf); add('single', bp.single); add('multiple', bp.multiple);
+                let marked = 0;
+                bucket.slice(0, n).forEach(d => {
+                    const isLong = marked < wantLong && picks.includes(d);
+                    if (isLong) { picks.splice(picks.indexOf(d), 1); marked++; }
+                    out.push({ type, diff: d, long: isLong });
+                });
+            });
             return out;
         }
 
@@ -691,7 +765,8 @@
             const subjW = sub ? sub.weight : 1.0;
             let secs = 0;
             questions.forEach(q => {
-                secs += (TIME_BASE[q.type] || 40) * subjW * (DIFF_WEIGHT[q.diff] || 1);
+                secs += (TIME_BASE[q.type] || 40) * subjW * (DIFF_WEIGHT[q.diff] || 1)
+                      + (q.long ? (TIME_LONG_BONUS[q.type] || 0) : 0);
             });
             const minutes = Math.ceil(secs / 60);
             return Math.min(60, Math.max(10, minutes)) * 60;
@@ -744,7 +819,14 @@
         // 模板題（tpl）在抽題時以固定探針 rng 物化一次、快取簽名；靜態題直接用 q。
         const SIG_CAP = 2;
         const __sigCache = new Map();
+        // 模板題專用：把數字換成 # 才抓得到「同一家族、只是換了數字」的題
+        // （gen 每次產生的數字不同，不屏蔽就每題都算不同題，護欄等於沒有）。
         function normalizeSig(t) { return String(t || '').replace(/\d+/g, '#').replace(/\s+/g, ' ').trim(); }
+        // 靜態題專用：**不屏蔽數字**。靜態題是作者寫死的，數字是題目內容的一部分
+        // ——「小明有 3 顆糖」和「小明有 30 顆糖」是兩題，不是同一題。舊寫法一律
+        // 屏蔽，導致只差數字的長段落塌成同一個簽名，SIG_CAP 一到就整批拒收
+        // （長題正是最容易只差數字的那類）。這裡只做空白正規化。
+        function normalizeSigExact(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
         function sigOfItem(it) {
             if (__sigCache.has(it.id)) return __sigCache.get(it.id);
             let s;
@@ -754,12 +836,23 @@
                     const probe = () => { n++; return ((n * 2654435761) % 4294967296) / 4294967296; };
                     try { s = normalizeSig(it.gen(probe).q); } catch (e) { s = 'TPL:' + it.id; }
                 } else { s = 'TPL:' + it.id; }
-            } else { s = normalizeSig(it.q); }
+            } else { s = normalizeSigExact(it.q); }
             __sigCache.set(it.id, s);
             return s;
         }
 
-        function drawItems(subjectId, targetGrade, type, need, quota, rng, domain) {
+        // 長題保留名額：依 type 分配每型各抽幾題長題。
+        // 長題只掛在 pro / challenge（建置時就斷言過），所以吃掉的是本來就要
+        // 吃的 pro/challenge 格 → 各型難度比例不變，只換「用哪一題」。
+        // 每型上限 1：同一型連續兩段長材料對小學生太重。
+        const LONG_TYPE_ORDER = ['single', 'tf', 'multiple'];
+        function longPerType(longWant, type) {
+            if (!longWant || longWant <= 0) return 0;
+            const i = LONG_TYPE_ORDER.indexOf(type);
+            return (i >= 0 && i < longWant) ? 1 : 0;
+        }
+
+        function drawItems(subjectId, targetGrade, type, need, quota, rng, domain, longWant) {
             if (need <= 0) return [];
             let pool = getItemPool(subjectId, targetGrade, type);
             if (domain) pool = pool.filter(it => it.dom === domain);
@@ -802,37 +895,78 @@
             };
             Object.keys(byDiff).forEach(d => { byDiff[d] = preferScope(byDiff[d]); });
 
-            const taken = [];
+            const poolTaken = [];   // 依配額取的「正取」題，順序＝交錯後的正確比例
+            const spareTaken = [];  // 正取湊不滿時才用的備援題，永遠排在正取之後
+            const taken = { get length() { return poolTaken.length + spareTaken.length; } };
+            const allTaken = () => poolTaken.concat(spareTaken);   // 記錄用（兩批都要記）
             const takenIds = new Set();
             const sigCount = {};   // 同卷內 (type|簽名) 已取計數
-            const take = (it) => {
+            const takenOf = { basic: 0, pro: 0, challenge: 0 };
+            // 本型已取幾題長題。長題名額是「每型」的，所以要從 poolTaken 裡數。
+            const takenLong = () => poolTaken.reduce((a, it) => a + (it.long ? 1 : 0), 0);
+            const take = (it, bucket) => {
                 if (takenIds.has(it.id)) return false;
                 const sg = type + '|' + sigOfItem(it);
                 if ((sigCount[sg] || 0) >= SIG_CAP) return false; // 同構上限
-                taken.push(it); takenIds.add(it.id); sigCount[sg] = (sigCount[sg] || 0) + 1;
+                bucket.push(it);
+                takenIds.add(it.id); sigCount[sg] = (sigCount[sg] || 0) + 1;
+                takenOf[it.diff] = (takenOf[it.diff] || 0) + 1;
                 return true;
             };
             const tiers = ['basic', 'pro', 'challenge'];
 
-            // First pass: honour the difficulty quota
-            // (無配滿時不退而求其次填佔位題：改為留空讓第二次 pass 不生效，
-            //  避免打破同一籤名 2 題上限 → 這種情況會少出題，藍圖會顯示實際題數。)
+            // 正取：逐層各取「配額那麼多題」。**不做 round-robin。**
+            //
+            // 呼叫端只拿回傳值的前 need 題，所以「前 need 題的難度組成」
+            // 就是卷子的難度組成。輪流（b,p,c,b,p,c…）看起來公平，實際會讓
+            // 前 need 題變成「非空層各分一半」：配額 5/3/0 在 challenge 空的
+            // 情況下輪成 4/4（實測 tf 配額 5/3/0 抽成 4/4），偏離配額。
+            // 逐層取滿配額就沒有這個問題。
+            //
+            // 這裡的順序不影響卷面——generatePaper 最後會逐題型洗牌
+            // （見下面的 byType/ordered），所以「這幾題誰先誰後」只影響
+            // 前 need 題是哪幾題，而這正是我們要控制的。
             tiers.forEach(t => {
                 let want = quota[t] || 0;
+                // 這一層先放長題再放普通題（長題池薄，晚取就拿不到）。
+                // 名額不在這裡封頂——drawItems 每次呼叫都重設計數，而呼叫端
+                // 會為了補題反覆呼叫它，所以在 drawItems 裡封頂等於沒封。
+                // 封頂在 placeOne（卷層級），這裡只是排序。
+                if ((t === 'pro' || t === 'challenge') && (longWant || 0) > 0) {
+                    for (let i = 0; i < byDiff[t].length && want > 0 && takenLong() < longWant; ) {
+                        if (!byDiff[t][i].long) { i++; continue; }
+                        const it = byDiff[t].splice(i, 1)[0];
+                        if (take(it, poolTaken)) want--;   // 被擋掉就直接丟棄
+                    }
+                }
                 while (want > 0 && byDiff[t].length) {
-                    const it = byDiff[t].shift();
-                    if (take(it)) want--;
+                    // 被同構上限或 id 去重擋掉的題目直接丟棄，繼續往本層
+                    // 下一題找——配額要湊滿，不能因為一題被擋就少一題。
+                    if (take(byDiff[t].shift(), poolTaken)) want--;
                 }
             });
 
-            // Second pass: top up from any remaining item, any difficulty
+            // 正取湊不滿 need：再把還留在各層的題補進備援批。
+            //
+            // 這裡是 drawItems 內部「最後一道」補題，呼叫端另有自己的補題迴圈
+            // （見 generatePaper 的 (2)(3)），所以正常情況下不會走到。留著是
+            // 為了保證回傳長度一定 ≥ need：呼叫端拿不到足夠的題就會少出題。
+            // 補的順序按「離配額最遠的層先補」，讓備援批也盡量維持比例。
             if (taken.length < need) {
-                const rest = preferScope(shuffle(
-                    tiers.reduce((acc, t) => acc.concat(byDiff[t]), []), rng
-                ));
-                for (const it of rest) {
-                    if (taken.length >= need) break;
-                    take(it);
+                const demand = { basic: quota.basic || 0, pro: quota.pro || 0, challenge: quota.challenge || 0 };
+                while (taken.length < need) {
+                    const before = taken.length;
+                    // 依「相對缺口」排序：先補缺口最大的層
+                    const order = tiers.slice().sort((a, b) =>
+                        (demand[b] - takenOf[b]) - (demand[a] - takenOf[a]));
+                    for (const t of order) {
+                        if (taken.length >= need) break;
+                        if (!byDiff[t].length) continue;
+                        const it = byDiff[t].shift();
+                        take(it, spareTaken);
+                    }
+                    // 一輪下來完全沒進展（所有層都被 id 或簽名擋住）→ 收工
+                    if (taken.length === before) break;
                 }
             }
 
@@ -840,19 +974,17 @@
             // ban-list: with parameterised templates the same template drawn
             // later is a genuinely different question, so we only avoid the
             // most recently used ones and cycle through the pool.
-            const ids = taken.map(it => it.id);
+            const ids = allTaken().map(it => it.id);
             const lp = pool.length;
             usedItems[key] = (usedItems[key] || []).concat(ids).slice(-Math.max(1, lp - 1));
             saveUsedItems();
 
             // ★ 依「優先序」回傳，不要在這裡洗牌。
-            // taken 的順序已經是：先難度配額（basic→pro→challenge，即 preferScope
-            // 排過的年級適切序），再補足的第二輪（也是 preferScope 序）。呼叫端
-            // 會多抽 SPARE 題當去重備援，若在這裡洗牌，真正想要的高年級題會被
-            // 洗到後面、被 slice 丟掉 → 剩下的 SPARE 額度全被 shuffle 隨機替換成
-            // 低年級題（實測國中卷因此仍有 43% 是 scope 2）。改由呼叫端在「已經
-            // 選定」之後才洗牌，隨機性不減，但不會再把稀缺的適齡題洗掉。
-            return taken.slice(0, need);
+            // 正取批是「逐層取滿配額」（tiers 的順序 = 難度由低到高），備援批
+            // 接在後面。呼叫端取前 need 題，所以前 need 題的難度組成 = 配額。
+            // 不在這裡洗牌的理由見上面 preferScope：洗牌會把稀缺的高年級題
+            // 洗到後面、被 slice 丟掉。卷面的呈現順序由 generatePaper 決定。
+            return poolTaken.concat(spareTaken).slice(0, need);
         }
 
         // Build a full paper: adaptive count, adaptive type mix, adaptive difficulty
@@ -880,54 +1012,154 @@
             // different "n is its own factor" templates may both roll n = 70).
             // Dedupe on the materialised content, not just the template id.
             const usedVariant = new Set();
+            // 整卷的難度配額：一次算列、再配到各題型的欄。
+            // 不要逐題型呼叫 diffQuota（count 太小，取整會把比例拉成 50/33/17）。
+            const diffRow = diffQuota(bp.total, bp.diff);
+            const diffMatrix = allocMatrix(diffRow, { tf: bp.tf, single: bp.single, multiple: bp.multiple });
+            // diffMatrix 是 m[難度][題型]，drawItems 要的是 quota[難度]
+            const colQuota = (m, type) => ({
+                basic: m.basic[type] || 0, pro: m.pro[type] || 0, challenge: m.challenge[type] || 0
+            });
+            const tiers = ['basic', 'pro', 'challenge'];
+            const placedOf = { basic: 0, pro: 0, challenge: 0 };
+            // 逐題型的已放題數。整卷的 placedOf 用來回報實際難度分佈，
+            // 但「這一型還缺哪一層」必須看這一型自己的配額——見下面的補題迴圈。
+            const placedByType = {
+                tf: { basic: 0, pro: 0, challenge: 0 },
+                single: { basic: 0, pro: 0, challenge: 0 },
+                multiple: { basic: 0, pro: 0, challenge: 0 }
+            };
+            const placedLongOf = { tf: 0, single: 0, multiple: 0 };
+            const placeOne = (it, type, allowLong) => {
+                // 長題名額（卷層級，每型上限）。必須在這裡封頂，不能在 drawItems
+                // 裡：drawItems 為了補題會被呼叫很多次，每次呼叫都重設自己的計數，
+                // 名額等於沒有（實測每卷 7–18 題長題，藍圖只要 1–2 題）。
+                //
+                // allowLong 是最後一道補題用的「名額讓步」：若某一型的 pro/challenge
+                // 池子整層都是長題，硬守名額會讓卷子少出題——那是靜默縮水，
+                // 比多一題長題糟得多。所以最後一輪改為題數優先。
+                if (!allowLong && it.long && placedLongOf[type] >= longPerType(bp.long, type)) return false;
+                // Materialise the template with this paper's RNG so the
+                // numbers, options and answers are fresh every attempt.
+                // Retry a few times to avoid colliding with a question
+                // already on this paper.
+                let m = null, hash = null;
+                for (let attempt = 0; attempt < 12; attempt++) {
+                    const candidate = materializeItem(it, rng, needZhuyin);
+                    // 數學超綱關鍵字防護網（篩 pool scope 之後的最後一道網）：
+                    if (poolSubject === 'math' && scopeViolation(candidate.title + ' ' + (candidate.options || []).join(' '), targetGrade)) continue;
+                    const h = variantHashOf(candidate);
+                    if (!usedVariant.has(h)) { m = candidate; hash = h; break; }
+                    // 是非題 has only two possible texts; once both are on the
+                    // paper there is nothing left to try.
+                    if (it.diff === 'basic' && it.tpl && attempt >= 2) break;
+                }
+                if (!m) {
+                    m = materializeItem(it, rng, needZhuyin);
+                    const kw = poolSubject === 'math' && scopeViolation(m.title + ' ' + (m.options || []).join(' '), targetGrade);
+                    hash = variantHashOf(m);
+                    if (usedVariant.has(hash) || kw) return false; // drop the duplicate / out-of-scope
+                }
+                usedVariant.add(hash);
+                placedOf[m.diff] = (placedOf[m.diff] || 0) + 1;
+                if (placedByType[type]) placedByType[type][m.diff] = (placedByType[type][m.diff] || 0) + 1;
+                if (m.long) placedLongOf[type] = (placedLongOf[type] || 0) + 1;
+                questions.push({
+                    id: m.id,
+                    tpl: m.tpl,
+                    variantHash: hash,
+                    type: type,
+                    diff: m.diff,
+                    long: !!m.long,
+                    title: m.title,
+                    zhuyin: m.zhuyin || null,
+                    options: m.options,
+                    optionsZhuyin: m.optionsZhuyin || null,
+                    answer: m.answer,
+                    explanation: m.explanation
+                });
+                return true;
+            };
             plan.forEach(({ type, count }) => {
                 if (count <= 0) return;
-                const quota = diffQuota(count, bp.diff);
+                const quota = colQuota(diffMatrix, type);
                 // 多抽幾題當備援：去重會把重複的題目丟掉，若只抽剛好的數量，
-                // 被丟掉的那一格就永遠補不回來（實測每卷少 0.5-1.5 題）。備援讓
-                // 後面抽到的題遞補上來，卷子才能維持藍圖要的題數。
-                const SPARE = 6;
-                const picked = drawItems(poolSubject, targetGrade, type, count + SPARE, quota, rng, sp ? sp.domain : null);
+                // 被丟掉的那一格就永遠補不回來。
+                //
+                // ★ 備援要從「抽的數量」多拿，不能從「配額」多拿。
+                // drawItems 的正取批是按配額逐層輪流放的，呼叫端只取前 count 題；
+                // 若把 quota 也按 count+SPARE 放大（舊寫法），正取批就變成
+                // 12 格的配額（8/3/1）輪流，前 6 格是 3/2/1 = 50/33/17，
+                // 而不是 6 格的配額（4/2/0）。配額一定只能算 count。
+                const SPARE = Math.min(10, Math.max(4, Math.ceil(count * 0.5)));
+                // 本型要幾題長題。longWant 依 type 分配（總 1→single，總 2→tf+single，
+                // 總 3→tf+single+multiple），超過三個的部分沒有型可以掛——所以上限就是 3。
+                const longWant = longPerType(bp.long, type);
+                let picked = drawItems(poolSubject, targetGrade, type, count + SPARE, quota, rng,
+                    sp ? sp.domain : null, longWant);
+                // 候選依難度分堆，然後「照配額逐層放」。
+                //
+                // 舊寫法是一條 picked 佇列一路放到 count 為止。某一題在
+                // placeOne 被 variantHash 去重擋掉時，遞補上來的是佇列裡的
+                // 下一題——它的難度不一定跟被擋掉的那題相同。實測 math|2 的
+                // multiple 配額 4/3/1，第 4 題 basic 被擋掉後由後面的
+                // challenge 遞補，於是**每一卷**都變成 3/3/2（藍圖 12/8/2
+                // 抽成 11/8/3）。逐層放就不會讓別層的題目越俎代庖。
+                const queues = { basic: [], pro: [], challenge: [] };
+                picked.forEach(it => { (queues[it.diff] || queues.basic).push(it); });
+                const pt = placedByType[type];
+                const qt = colQuota(diffMatrix, type);
                 let placed = 0;
-                picked.forEach((it) => {
-                    if (placed >= count) return;
-                    // Materialise the template with this paper's RNG so the
-                    // numbers, options and answers are fresh every attempt.
-                    // Retry a few times to avoid colliding with a question
-                    // already on this paper.
-                    let m = null, hash = null;
-                    for (let attempt = 0; attempt < 12; attempt++) {
-                        const candidate = materializeItem(it, rng, needZhuyin);
-                        // 數學超綱關鍵字防護網（篩 pool scope 之後的最後一道網）：
-                        if (poolSubject === 'math' && scopeViolation(candidate.title + ' ' + (candidate.options || []).join(' '), targetGrade)) continue;
-                        const h = variantHashOf(candidate);
-                        if (!usedVariant.has(h)) { m = candidate; hash = h; break; }
-                        // 是非題 has only two possible texts; once both are on the
-                        // paper there is nothing left to try.
-                        if (it.diff === 'basic' && it.tpl && attempt >= 2) break;
+                // (1) 照配額逐層放
+                tiers.forEach(t => {
+                    while (queues[t].length && placed < count && (pt[t] || 0) < (qt[t] || 0)) {
+                        if (placeOne(queues[t].shift(), type)) placed++;
                     }
-                    if (!m) {
-                        m = materializeItem(it, rng, needZhuyin);
-                        const kw = poolSubject === 'math' && scopeViolation(m.title + ' ' + (m.options || []).join(' '), targetGrade);
-                        hash = variantHashOf(m);
-                        if (usedVariant.has(hash) || kw) return; // drop the duplicate / out-of-scope
-                    }
-                    usedVariant.add(hash);
-                    placed++;
-                    questions.push({
-                        id: m.id,
-                        tpl: m.tpl,
-                        variantHash: hash,
-                        type: type,
-                        diff: m.diff,
-                        title: m.title,
-                        zhuyin: m.zhuyin || null,
-                        options: m.options,
-                        optionsZhuyin: m.optionsZhuyin || null,
-                        answer: m.answer,
-                        explanation: m.explanation
-                    });
                 });
+                // (2) 配額放完仍有缺額 → 反覆用「本型還缺的層」當配額再抽。
+                //
+                // 每層拿到手的候選**剛好等於配額數**（備援題在 drawItems 裡是
+                // 平鋪接在後面，不會按層給餘裕），所以只要有一題在 placeOne
+                // 被 variantHash 去重擋掉，該層的候選就用光了。此時若直接拿
+                // 剩下的候選硬塞，塞進來的是別層的題——實測 math|2 的 multiple
+                // 配額 4/3/1，第 4 題 basic 被擋掉後由 challenge 遞補，
+                // **每一卷**都變成 3/3/2（藍圖 12/8/2 抽成 11/8/3，200/200 卷）。
+                // 缺口導向的補題才會把同一層補回來。
+                for (let round = 0; placed < count && round < 4; round++) {
+                    const def = {};
+                    let anyDef = false;
+                    tiers.forEach(t => {
+                        def[t] = Math.max(0, (qt[t] || 0) - (pt[t] || 0));
+                        if (def[t]) anyDef = true;
+                    });
+                    const more = drawItems(poolSubject, targetGrade, type, (count - placed) + 2,
+                        anyDef ? def : { basic: count, pro: count, challenge: count },
+                        rng, sp ? sp.domain : null);
+                    if (!more.length) break;
+                    const before = placed;
+                    more.forEach(it => {
+                        if (placed >= count) return;
+                        if (anyDef && (pt[it.diff] || 0) >= (qt[it.diff] || 0)) return; // 這層不缺了
+                        if (placeOne(it, type)) placed++;
+                    });
+                    if (placed === before) break;
+                }
+                // (3) 最後手段：配額已經顧不上了，題數優先。
+                //
+                // ★ 這裡要「抽很多」而不是抽 just-enough。drawItems 每次都用
+                // 同一個題池重新排序，所以第一次抽到的前幾題跟正取批完全一樣，
+                // 那些題早就被 usedVariant 擋掉了——只抽 (count-placed)+2 題，
+                // 等於每一輪都在重試同一批已被拒的題目，永遠不進展
+                // （實測 chinese|3 每卷少 2 題）。抽滿整個池子，讓 placeOne
+                // 自己去篩，才碰得到後面的新題。
+                for (let round = 0; placed < count && round < 4; round++) {
+                    const more = drawItems(poolSubject, targetGrade, type, count * 4,
+                        { basic: count, pro: count, challenge: count }, rng, sp ? sp.domain : null, 0);
+                    if (!more.length) break;
+                    const before = placed;
+                    more.forEach(it => { if (placed < count && placeOne(it, type, true)) placed++; });
+                    if (placed === before) break;
+                }
             });
 
             // 題型要分段，不要交錯：整份卷子排成「是非 → 單選 → 多選」三塊，
@@ -939,7 +1171,21 @@
             ['tf', 'single', 'multiple'].forEach(t => {
                 if (byType[t] && byType[t].length) ordered.push(...shuffle(byType[t], rng));
             });
-            return { questions: ordered, targetGrade, needZhuyin, blueprint: bp };
+            // 卷子實際抽到幾題。bp.total 是「目標」，不是既成事實——去重與同構
+// 上限都可能讓某一型抽不滿。把實際值顯式寫出來，少出題才會現形
+// （accept.js 一直在比 questions.length !== blueprint.total，以前沒有
+// 這個欄位時那個比較看不出是誰的問題）。
+// difficultyWant = allocator 算出的目標難度列；difficulty = 實際放上去的。
+// 兩個都留，才分得出「引擎沒照藍圖」和「題庫給不出那麼多 challenge」。
+            const actualBp = Object.assign({}, bp, {
+                actual: ordered.length,
+                // 長題實際放上去幾題。bp.long 是目標；匯入的長題還很少，
+                // 池子給不出來時要看得見，而不是靜默地少放。
+                longActual: ordered.reduce((a, q) => a + (q.long ? 1 : 0), 0),
+                difficulty: placedOf,
+                difficultyWant: diffRow
+            });
+            return { questions: ordered, targetGrade, needZhuyin, blueprint: actualBp };
         }
 
         // A cheap fingerprint of a materialised question. Two draws of the same
@@ -1089,11 +1335,11 @@
                             // 低年級在這裡也要看得到答案的注音，否則對答案時看不懂。
                             return val.map(x => {
                                 const zy = (q.optionsZhuyin && q.optionsZhuyin[x]) || null;
-                                const txt = zy ? renderZhuyin(q.options[x], zy) : q.options[x];
+                                const txt = zy ? renderZhuyin(q.options[x], zy) : escapeHtml(q.options[x]);
                                 return String.fromCharCode(65 + x) + '. ' + txt;
                             }).join(', ');
                         };
-                        const title = q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : q.title;
+                        const title = q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : escapeHtml(q.title);
                         return `
                             <div class="p-3 rounded-lg border ${isCorrect ? 'border-emerald-200 bg-emerald-50/40' : 'border-rose-200 bg-rose-50/40'} space-y-1">
                                 <div class="flex items-center justify-between">
@@ -1619,12 +1865,19 @@
         /* 每次 renderZhuyin 前確保已量測（已量過會瞬時跳過） */
         function ensureZhuyinWidth() { return measureZhuyinWidth(false); }
 
+        // 全模組共用。題幹、選項、解析都會被插進 innerHTML，而題目文字是
+        // 作者寫的內容（不是使用者輸入）——但長題與數學不等式裡本來就會有
+        // `<`、`&` 這種字元（「5 < 7」「A & B」），不跳脫就不是資安問題而是
+        // 顯示問題：瀏覽器會把它們當標籤吃掉。長題上線前一定要先有這個。
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
         function renderZhuyin(text, zhuyin) {
             ensureZhuyinWidth();
-            const esc = (s) => String(s).replace(/[&<>"']/g, c =>
-                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-            if (!zhuyin) return esc(text);
+            if (!zhuyin) return escapeHtml(text);
 
             const chars = Array.from(text);
             const syls = zhuyin.split(' ');
@@ -1638,16 +1891,16 @@
                 // 無讀音的字（標點、數字、拉丁）只佔漢字格寬，不留空的注音欄，
                 // 否則每個標點後面都會多出一段空白。
                 if (!sy) {
-                    html += `<span class="zy zy-plain"><span class="zy-base">${esc(ch)}</span></span>`;
+                    html += `<span class="zy zy-plain"><span class="zy-base">${escapeHtml(ch)}</span></span>`;
                     continue;
                 }
                 // 直排注音：把音節拆成單一符號，每個符號自己一層由上往下疊。
                 // 所以 ㄒㄧㄚˋ 只佔約一個符號寬，不是三個字的寬度。
                 const stacked = Array.from(sy)
                     .filter(c => c.trim())
-                    .map(c => `<span class="zy-sym">${esc(c)}</span>`)
+                    .map(c => `<span class="zy-sym">${escapeHtml(c)}</span>`)
                     .join('');
-                html += `<span class="zy"><span class="zy-base">${esc(ch)}</span>` +
+                html += `<span class="zy"><span class="zy-base">${escapeHtml(ch)}</span>` +
                     `<span class="zy-top">${stacked}</span></span>`;
             }
             return html;
@@ -1707,7 +1960,7 @@
                 optCard.innerHTML = `
                     <div class="flex items-center space-x-3">
                         <span class="w-7 h-7 rounded-lg border font-bold text-xs flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-600 border-slate-200'}">${letter}</span>
-                        <span class="text-sm font-medium${optZy ? ' zy-line' : ''}"${optZy ? ` style="line-height: calc(var(--zy-row, 2em) + 0.35em)"` : ''}>${optZy ? renderZhuyin(optText, optZy) : optText}</span>
+                        <span class="text-sm font-medium${optZy ? ' zy-line' : ''}"${optZy ? ` style="line-height: calc(var(--zy-row, 2em) + 0.35em)"` : ''}>${optZy ? renderZhuyin(optText, optZy) : escapeHtml(optText)}</span>
                     </div>
                     <div class="text-indigo-600 text-base">${isSelected ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-regular fa-circle"></i>'}</div>
                 `;
@@ -1918,7 +2171,7 @@
                     // 低年級在這裡也要看得到答案的注音，否則對答案時看不懂。
                     return indices.map(idx => {
                         const zy = (q.optionsZhuyin && q.optionsZhuyin[idx]) || null;
-                        const txt = zy ? renderZhuyin(q.options[idx], zy) : q.options[idx];
+                        const txt = zy ? renderZhuyin(q.options[idx], zy) : escapeHtml(q.options[idx]);
                         return `${String.fromCharCode(65 + idx)}. ${txt}`;
                     }).join(', ');
                 };
@@ -1931,10 +2184,10 @@
                             <span class="text-xs px-2 py-0.5 rounded font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${isCorrect ? '答對' : '答錯'}</span>
                         </div>
                     </div>
-                    <div class="text-sm font-medium text-slate-800${q.zhuyin ? ' zy-line' : ''}">${q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : q.title}</div>
+                    <div class="text-sm font-medium text-slate-800${q.zhuyin ? ' zy-line' : ''}">${q.zhuyin ? renderZhuyin(q.title, q.zhuyin) : escapeHtml(q.title)}</div>
                     <div class="text-xs text-slate-600">您的答案：<span class="font-bold">${getAnsText(userAns)}</span></div>
                     <div class="text-xs text-emerald-700 font-bold">標準答案：${getAnsText(q.answer)}</div>
-                    <div class="text-xs text-slate-500 bg-white p-2 rounded border border-slate-200 mt-1">解析：${q.explanation}</div>
+                    <div class="text-xs text-slate-500 bg-white p-2 rounded border border-slate-200 mt-1">解析：${escapeHtml(q.explanation)}</div>
                 `;
                 container.appendChild(card);
             });

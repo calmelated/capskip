@@ -84,6 +84,9 @@ function materializeItem(item, rnd, withZhuyin) {
         id: item.id,
         tpl: !!item.tpl,
         diff: item.diff,
+        // long 是作者宣告的教學意圖（這題是一段閱讀材料），不是量出來的字數，
+        // 所以直接從題庫帶出來，不從 base 推。模板題的 gen 也可以自帶 long。
+        long: !!(base.long || item.long),
         title: base.q,
         // Annotations are produced only when the student's grade requires them.
         zhuyin: withZhuyin ? zhuyinOf(base.q) : null,

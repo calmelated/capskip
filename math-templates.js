@@ -46,10 +46,20 @@ function bf(tpl, pair) { return (typeof tpl === 'function' ? tpl(pair) : tpl).re
 function buildMath(push, nid) {
     // 家族註冊器：把題組註冊到「所有目標年級 >= from」的題庫（年級範圍白名單）。
     // 題面由 rnd 隨機生成；scope=from 儲存在題目上，drawItems 抽題時會再檢查。
+    //
+    // long 旗標要在**註冊時**就寫進題目物件。
+    // 為什麼不能只靠 gen() 回傳：drawItems 是拿題池裡的題目物件判斷長題的
+    // （byDiff[t][i].long），而模板題在題池裡沒有 q、也沒有 long 欄位——只有
+    // 呼叫 gen() 之後才會知道。若不在這裡寫進去，數學長題永遠不會被選進卷子，
+    // 卷子的長題數就永遠湊不到藍圖要的 bp.long（實測：其他科都對，只有數學 0）。
+    // 長題家族的命名一律以 lg. / lgtf. 開頭，用命名當契約，避免漏標。
     const fam = (from, type, diff, scope, src, count, gen) => {
+        const isLong = /^(lg|lgtf)\./.test(String(gen.fam || ''));
         for (let g = from; g <= 10; g++) {
             for (let k = 0; k < count; k++) {
-                push('math', g, type, { id: nid('math', g, type), diff, tpl: true, scope: from, fam: gen.fam, src, gen });
+                push('math', g, type, Object.assign(
+                    { id: nid('math', g, type), diff, tpl: true, scope: from, fam: gen.fam, src, gen },
+                    isLong ? { long: true } : null));
             }
         }
     };
@@ -1476,6 +1486,432 @@ function buildMath(push, nid) {
         };
         gen.fam = 'ml.line';
         fam(8, 'multiple', 'challenge', 0, 'a-IV-4', 2, gen);
+    }
+
+    // ==================== 長題應用題題組（閱讀理解型） ====================
+    //
+    // 為什麼要另外寫這一批：數學原本 100% 是模板計算題，題幹一行就問完，
+    // 學生只要會算、不必讀。使用者要的是「看得出理解力」的題目，所以這裡的
+    // 每個 gen 都回傳一段 2–3 句的情境，答案需要**先讀懂關係再算**。
+    //
+    // 兩個契约：
+    //   1. gen 回傳的物件帶 long: true。emit-itembank.mjs 的 materializeItem
+    //      會用 `base.long || item.long` 把它帶出去，index.html 的長題加成、
+    //      每型長題名額（longPerType）都靠這個旗標。
+    //   2. 每個誘餌由**具名的迷思**算出，不是隨機偏移。explain 要點名那個迷思。
+    //      （隨機偏移的誘餌一看就假，學生用刪去法就答對了，鑑別度反而是負的。）
+    //
+    // 為什麼不擔心題幹過長：calcTimeLimit 對 long 題有加成
+    // （tf +30s / single +60s / multiple +90s），閱讀時間已經算進去了。
+
+    // ---- scope 2：低年級加減應用題（目標年級 >= 2）----
+    {
+        const gen = (rnd) => {
+            const a = 5 + Math.floor(rnd() * 15);   // 原有
+            const b = 2 + Math.floor(rnd() * 9);    // 送出
+            const c = 1 + Math.floor(rnd() * 4);    // 又拿來
+            const left = a - b + c;
+            const spy = a + b;                      // 迷思：把「送出」看成「又拿到」
+            const wrongOrder = a - b - c;           // 迷思：漏掉「又拿來」那一步
+            const noC = a - b;                      // 迷思：只算第一步就停手
+            const correct = String(left);
+            const opts = [correct, String(spy), String(wrongOrder), String(noC)]
+                .filter((v, i, arr) => arr.indexOf(v) === i);
+            while (opts.length < 4) opts.push(String(left + opts.length));
+            const all = shuffleWithRnd(opts.slice(0, 4), rnd);
+            return {
+                long: true,
+                q: '教室的書櫃上有 ' + a + ' 本書。下課時，小明拿走了 ' + b + ' 本，'
+                  + '上課前，老師又放進來 ' + c + ' 本。'
+                  + '現在書櫃上有幾本書？',
+                options: all,
+                answer: [all.indexOf(correct)],
+                explain: '要一步一步跟著數量變化走：先拿走 ' + b + ' 本，剩下 ' + a + ' − ' + b + ' = ' + (a - b)
+                  + ' 本；老師又放進來 ' + c + ' 本，變成 ' + (a - b) + ' + ' + c + ' = ' + left + ' 本。'
+                  + '最常見的錯誤是把「又放進來」看成「又拿走」（算成 ' + wrongOrder + '），'
+                  + '或是只做完第一步就停下來（答 ' + noC + '）；'
+                  + '還有人把兩個數字直接相加（答 ' + spy + '），那是沒看懂「拿走」的意思。'
+            };
+        };
+        gen.fam = 'lg.addsub2';
+        fam(2, 'single', 'pro', 0, 'n-I-2', 3, gen);
+    }
+
+    // ---- scope 4：中年級乘除＋單價（目標年級 >= 4）----
+    {
+        const gen = (rnd) => {
+            const packs = 3 + Math.floor(rnd() * 6);      // 買幾包
+            const per = 5 + Math.floor(rnd() * 8);        // 每包幾個
+            const total = packs * per;
+            const give = 1 + Math.floor(rnd() * 4);       // 每包多送幾個
+            const realPer = per + give;                   // 實際每包拿到的
+            const got = packs * realPer;
+            const addOnly = per + give;                   // 迷思：把「每包多送」當成總共多送
+            const forgot = packs * per;                   // 迷思：只看包裝上寫的數量，忽略贈送
+            const plusOnce = packs * per + give;          // 迷思：贈送只加一次，不是每包都加
+            const correct = String(got);
+            const opts = [correct, String(forgot), String(plusOnce), String(addOnly)]
+                .filter((v, i, arr) => arr.indexOf(v) === i);
+            while (opts.length < 4) opts.push(String(got + opts.length));
+            const all = shuffleWithRnd(opts.slice(0, 4), rnd);
+            return {
+                long: true,
+                q: '校慶園遊會要發送氣球。一包氣球標示有 ' + per + ' 顆，'
+                  + '老闆說今天每買一包就再多送 ' + give + ' 顆。'
+                  + '媽媽買了 ' + packs + ' 包，一共可以拿到幾顆氣球？',
+                options: all,
+                answer: [all.indexOf(correct)],
+                explain: '關鍵是「每一包都多送」。每包實際拿到 ' + per + ' + ' + give + ' = ' + realPer
+                  + ' 顆，買 ' + packs + ' 包，所以是 ' + realPer + ' × ' + packs + ' = ' + got + ' 顆。'
+                  + '最常見的迷思是把贈送只算一次（' + per + ' × ' + packs + ' + ' + give + ' = ' + plusOnce
+                  + '），或是只看包裝上的數量而漏掉贈送（' + forgot + '）；'
+                  + '也有人把「每包多送 ' + give + ' 顆」誤讀成「總共只多 ' + give + ' 顆」。'
+            };
+        };
+        gen.fam = 'lg.mulpack4';
+        fam(4, 'single', 'pro', 0, 'n-II-4', 3, gen);
+    }
+
+    // ---- scope 4：中年級「先算一份，再算幾份」----
+    {
+        const gen = (rnd) => {
+            const boxes = 2 + Math.floor(rnd() * 5);       // 有幾盒
+            const perBox = 6 + Math.floor(rnd() * 7);      // 每盒幾顆
+            const eaten = 1 + Math.floor(rnd() * 5);       // 吃掉幾顆
+            const total = boxes * perBox - eaten;
+            const noEat = boxes * perBox;                  // 迷思：漏掉吃掉的那一步
+            const eatAll = boxes * perBox - eaten * boxes; // 迷思：把「一共吃掉幾顆」當成「每盒吃掉幾顆」
+            const addEat = boxes * perBox + eaten;         // 迷思：把「吃掉」看成「增加」
+            const correct = String(total);
+            const opts = [correct, String(noEat), String(eatAll), String(addEat)]
+                .filter((v, i, arr) => arr.indexOf(v) === i);
+            while (opts.length < 4) opts.push(String(total + opts.length));
+            const all = shuffleWithRnd(opts.slice(0, 4), rnd);
+            return {
+                long: true,
+                q: '餅乾盒每盒有 ' + perBox + ' 顆餅乾，桌上一共有 ' + boxes + ' 盒。'
+                  + '妹妹吃了 ' + eaten + ' 顆以後，桌上還剩下幾顆餅乾？',
+                options: all,
+                answer: [all.indexOf(correct)],
+                explain: '先算全部的數量再扣掉吃掉的：' + boxes + ' × ' + perBox + ' = ' + (boxes * perBox)
+                  + ' 顆，吃掉 ' + eaten + ' 顆後剩下 ' + (boxes * perBox) + ' − ' + eaten + ' = ' + total + ' 顆。'
+                  + '最常見的迷思是漏掉「吃掉」這個步驟，只算出一共有幾顆（答 ' + noEat + '）；'
+                  + '另一個是把『一共吃掉 ' + eaten + ' 顆』誤當成『每一盒都吃掉 ' + eaten + ' 顆』，'
+                  + '於是算成 ' + eatAll + '。'
+            };
+        };
+        gen.fam = 'lg.twofam4';
+        fam(4, 'single', 'challenge', 0, 'n-II-5', 3, gen);
+    }
+
+    // ---- scope 6：高年級速率問題（目標年級 >= 6）----
+    {
+        const gen = (rnd) => {
+            const speed = 40 + Math.floor(rnd() * 41);    // 每小時幾公里
+            const h1 = 1 + Math.floor(rnd() * 3);         // 先走幾小時
+            const h2 = 1 + Math.floor(rnd() * 3);         // 又走幾小時
+            const total = speed * (h1 + h2);
+            const wrongH = speed * h1;                    // 迷思：只算第一段
+            const addHours = speed + h1 + h2;             // 迷思：把時間直接加在速率上
+            const mulHours = speed * h1 * h2;             // 迷思：兩段時間相乘
+            const correct = String(total);
+            const opts = [correct, String(wrongH), String(addHours), String(mulHours)]
+                .filter((v, i, arr) => arr.indexOf(v) === i);
+            while (opts.length < 4) opts.push(String(total + opts.length));
+            const all = shuffleWithRnd(opts.slice(0, 4), rnd);
+            return {
+                long: true,
+                q: '一輛公車以每小時 ' + speed + ' 公里的固定速率行駛。'
+                  + '它先開了 ' + h1 + ' 小時抵達休息站，休息之後，又用同樣的速率開了 ' + h2 + ' 小時。'
+                  + '這輛公車總共行駛了多少公里？',
+                options: all,
+                answer: [all.indexOf(correct)],
+                explain: '速率固定時，距離 = 速率 × 總時間。總時間是 ' + h1 + ' + ' + h2 + ' = ' + (h1 + h2)
+                  + ' 小時，所以距離 = ' + speed + ' × ' + (h1 + h2) + ' = ' + total + ' 公里。'
+                  + '最常見的迷思是只算出第一段就停手（答 ' + wrongH + '）；'
+                  + '也有人把兩個時間相加後直接加到速率上（答 ' + addHours + '），那是把「公里」和「小時」混在一起了；'
+                  + '還有人把兩段時間相乘（答 ' + mulHours + '），誤以為「兩段路程」要相乘。'
+                  + '中間休息的時間不算行駛，所以不能加進去。'
+            };
+        };
+        gen.fam = 'lg.speed6';
+        fam(6, 'single', 'challenge', 0, 'n-III-11', 3, gen);
+    }
+
+    // ---- scope 8：國中「先求單位量再比較」----
+    {
+        const gen = (rnd) => {
+            const nA = 2 + Math.floor(rnd() * 5);
+            const nB = nA + 1 + Math.floor(rnd() * 4);    // nB > nA，保證單位價不同
+            const uA = 1 + Math.floor(rnd() * 12);        // A 的單價（整數）
+            let uB = 1 + Math.floor(rnd() * 12);          // B 的單價（整數）
+            // 單價是用乘出來的（不是除出來的），所以一定可以化成整數價格，
+            // 不會出現「≈12.3 元」這種不像售價的數字。
+            if (uB === uA) uB = uA + 1;                   // 保證兩者單價不同
+            const priceA = uA * nA, priceB = uB * nB;
+            const cheaper = uA < uB ? 'A' : 'B';
+            const correct = cheaper;
+            const opts = [correct, cheaper === 'A' ? 'B' : 'A', '一樣便宜', '無法判斷'];
+            const all = shuffleWithRnd(opts, rnd);
+            return {
+                long: true,
+                q: '大賣場有兩種包裝的洗衣精。A 包裝 ' + nA + ' 瓶賣 ' + priceA + ' 元；'
+                  + 'B 包裝 ' + nB + ' 瓶賣 ' + priceB + ' 元。'
+                  + '兩種包裝的洗衣精完全相同，買哪一種比較便宜？',
+                options: all,
+                answer: [all.indexOf(correct)],
+                explain: '要比單價，不能只看總價。A 每瓶 ' + priceA + ' ÷ ' + nA + ' = '
+                  + uA + ' 元，B 每瓶 ' + priceB + ' ÷ ' + nB + ' = ' + uB
+                  + ' 元，所以 ' + cheaper + ' 比較便宜。'
+                  + '最常見的迷思是「總價低的一定比較便宜」——這裡總價較低的是 '
+                  + (priceA < priceB ? 'A' : 'B') + '，但它的瓶數也少，單價其實比較'
+                  + ((priceA < priceB ? uA : uB) < (priceA < priceB ? uB : uA) ? '低' : '高')
+                  + '。另一種迷思是看到「無法判斷」就選它，但兩邊的數量與價格都給了，是可以算的。'
+            };
+        };
+        gen.fam = 'lg.unitprice8';
+        fam(8, 'single', 'challenge', 0, 'n-IV-9', 3, gen);
+    }
+
+    // ---- scope 6：長題多選（先讀懂「哪一項說法成立」）----
+    {
+        const gen = (rnd) => {
+            const a = 12 + Math.floor(rnd() * 9);
+            const b = 15 + Math.floor(rnd() * 9);
+            const c = 18 + Math.floor(rnd() * 9);
+            const sum = a + b + c;
+            const avg = sum / 3;
+            const opts = [
+                '三個數的總和是 ' + sum,
+                '三個數的平均是 ' + (Number.isInteger(avg) ? avg : avg.toFixed(2)),
+                '最大的數和最小的數相差 ' + (c - a),
+                '三個數的平均一定等於中間那個數 ' + b
+            ];
+            const correct = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((z, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                long: true,
+                q: '老師在黑板上寫了三個數：' + a + '、' + b + '、' + c + '。'
+                  + '她請同學說出關於這三個數的敘述。'
+                  + '下列哪些敘述是正確的？（可多選）',
+                options: shuffled,
+                answer: correct.map(z => shuffled.indexOf(z)).sort((x, y) => x - y),
+                explain: '總和 ' + a + ' + ' + b + ' + ' + c + ' = ' + sum
+                  + '，平均 ' + sum + ' ÷ 3 = ' + (Number.isInteger(avg) ? avg : avg.toFixed(2))
+                  + '，最大 ' + c + ' 與最小 ' + a + ' 相差 ' + (c - a) + '，這三項都對。'
+                  + '錯的是「平均一定等於中間那個數」：平均是所有數平分後的結果，'
+                  + '中間那個數只是排序後位在中間的值，兩者只有在三個數剛好成等差時才會相同，'
+                  + '一般情況下並不相等。把「中位數」和「平均數」混為一談，是這題最常見的錯誤。'
+            };
+        };
+        gen.fam = 'lg.avg6';
+        fam(6, 'multiple', 'pro', 0, 'n-III-10', 2, gen);
+    }
+
+    // ---- scope 8：長題多選（比例／打折情境）----
+    {
+        const gen = (rnd) => {
+            const price = 200 + Math.floor(rnd() * 8) * 50;   // 原價
+            const off = 10 * (2 + Math.floor(rnd() * 5));     // 打幾折（8折等）
+            const pay = price * off / 10;
+            const saved = price - pay;
+            const opts = [
+                '打折後要付 ' + pay + ' 元',
+                '比原價便宜了 ' + saved + ' 元',
+                '折扣的折數越小，表示價格越低',
+                '打折後付的錢比原價多 ' + saved + ' 元'
+            ];
+            const correct = [opts[0], opts[1], opts[2]];
+            const order = shuffleWithRnd(opts.map((z, i) => i), rnd);
+            const shuffled = order.map(i => opts[i]);
+            return {
+                long: true,
+                q: '百貨公司週年慶，一件原價 ' + price + ' 元的外套打 ' + (off / 10) + ' 折。'
+                  + '店員說：「折數數字越小，折扣越多。」'
+                  + '下列哪些敘述是正確的？（可多選）',
+                options: shuffled,
+                answer: correct.map(z => shuffled.indexOf(z)).sort((x, y) => x - y),
+                explain: '打 ' + (off / 10) + ' 折表示只要付原價的 ' + (off / 10) + '，'
+                  + '所以付 ' + price + ' × ' + (off / 10) + ' = ' + pay + ' 元，'
+                  + '省下 ' + price + ' − ' + pay + ' = ' + saved + ' 元。'
+                  + '折數是「付的比例」，三折比八折便宜，所以折數數字越小價格越低，這句也對。'
+                  + '錯的是「打折後付的錢比原價多」：打折一定是變便宜，不可能變貴；'
+                  + '會選它是把「折數」當成「加價的幅度」，或把「省下的錢」和「付的錢」看反了。'
+            };
+        };
+        gen.fam = 'lg.discount8';
+        fam(8, 'multiple', 'challenge', 0, 'n-IV-5', 2, gen);
+    }
+
+    // ---- 長題是非題：給一段情境，判斷「某人的算法／說法對不對」----
+    //
+    // 為什麼是非題也要長題：每卷的長題名額是「每個題型各 1 題」分配的
+    // （longPerType：總 2 題 → tf + single；總 3 題 → tf + single + multiple）。
+    // 只做 single 的長題，tf 那一格永遠空著，卷子的長題數就永遠湊不到 bp.long。
+    //
+    // 是非題的難度不在計算，在「看懂情境裡的那句話是不是同一個意思」——
+    // 學生要先把別人的敘述翻譯成算式，才能判斷對錯。這正是閱讀理解。
+    //
+    // 兩種迷思輪替：
+    //   (a) 把「平均」當成「其中一個」（除以份數卻沒有回到總量）
+    //   (b) 把「單位量 × 份數」和「總量 ÷ 份數」互換（該乘卻除）
+
+    // scope 2：低年級加減（目標年級 >= 2）
+    {
+        const gen = (rnd) => {
+            const a = 8 + Math.floor(rnd() * 12);   // 開始有幾個
+            const b = 2 + Math.floor(rnd() * 6);    // 送出幾個
+            const c = 1 + Math.floor(rnd() * 4);    // 又拿來幾個
+            const left = a - b + c;
+            // (a) 迷思：只算第一步（漏掉「又拿來」）
+            const half = a - b;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? half : left;
+            return {
+                long: true,
+                q: '盒子裡原本有 ' + a + ' 顆彈珠。小明先拿出 ' + b + ' 顆送給同學，'
+                  + '後來老師又放進 ' + c + ' 顆。小華說：「現在盒子裡有 ' + shown + ' 顆彈珠。」'
+                  + '小華的說法正確嗎？',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。要跟著數量變化走完兩步：拿出 ' + b + ' 顆後剩 ' + a + ' − ' + b + ' = ' + half
+                      + ' 顆，老師又放進 ' + c + ' 顆，變成 ' + half + ' + ' + c + ' = ' + left + ' 顆。'
+                      + '小華只做了第一步就停手，漏掉「老師又放進 ' + c + ' 顆」那句話。'
+                      + '這種「只算第一步」的迷思，在小學生身上很常見——他們看到第一個動作就開始算，'
+                      + '沒把整段敘述讀完。'
+                    : '正確。拿出 ' + b + ' 顆後剩 ' + a + ' − ' + b + ' = ' + half + ' 顆，'
+                      + '老師又放進 ' + c + ' 顆，變成 ' + half + ' + ' + c + ' = ' + left + ' 顆。'
+                      + '注意「拿出」是變少、「又放進」是變多，兩個動作的方向相反，'
+                      + '不能都當成加法或都當成減法。'
+            };
+        };
+        gen.fam = 'lgtf.addsub2';
+        fam(2, 'tf', 'pro', 0, 'n-I-2', 3, gen);
+    }
+
+    // scope 4：中年級乘除（目標年級 >= 4）
+    {
+        const gen = (rnd) => {
+            const boxes = 3 + Math.floor(rnd() * 4);      // 幾盒（3..6）
+            const share = 2 + Math.floor(rnd() * 3);      // 分給幾個人（2..4）
+            const k = 1 + Math.floor(rnd() * 3);          // 每人分到 k 盒的量
+            // 讓「每盒的數量」是 share 的倍數，總量就一定分得完：
+            // total = boxes × per = boxes × share × k，除以 share 必為整數。
+            // 這樣就不必「抽到不整除就重抽」——重抽在 rnd 固定時會無限遞迴。
+            const per = share * k;
+            const total = boxes * per;
+            const each = total / share;
+            // (b) 迷思：把「總量 ÷ 份數」做成「單位量 × 份數」→ 算成 total
+            //     或把「每盒幾個」當成答案（忘記乘盒數）
+            const miscon = rnd() < 0.5 ? total : per;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? miscon : each;
+            return {
+                long: true,
+                q: '老師把 ' + boxes + ' 盒鉛筆平分給 ' + share + ' 個小朋友，'
+                  + '每一盒裡面有 ' + per + ' 枝鉛筆。小美說：「每個人可以分到 ' + shown + ' 枝鉛筆。」'
+                  + '小美的說法正確嗎？',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。要先算全部的鉛筆有幾枝，再平分給人：'
+                      + boxes + ' × ' + per + ' = ' + total + ' 枝，'
+                      + total + ' ÷ ' + share + ' = ' + each + ' 枝。'
+                      + (miscon === total
+                          ? '小美算成 ' + total + '，那是「全部的鉛筆數」——她做完乘法就停下來，忘了要平分。'
+                          : '小美算成 ' + per + '，那是「一盒裡的鉛筆數」——她忘了先乘盒數，'
+                            + '把「一盒的量」誤當成「一個人的量」。')
+                      + '這題有兩個步驟（先乘再除），少做一步就會得到上面那種答案。'
+                    : '正確。全部有 ' + boxes + ' × ' + per + ' = ' + total + ' 枝鉛筆，'
+                      + '平分給 ' + share + ' 個人，每人 ' + total + ' ÷ ' + share + ' = ' + each + ' 枝。'
+                      + '兩個步驟都要做：先算總量，再平分。'
+            };
+        };
+        gen.fam = 'lgtf.muldiv4';
+        fam(4, 'tf', 'pro', 0, 'n-II-3', 3, gen);
+    }
+
+    // scope 6：高年級分數與平均（目標年級 >= 6）
+    {
+        const gen = (rnd) => {
+            const n = 3 + Math.floor(rnd() * 3);          // 幾筆資料
+            const each = 4 + Math.floor(rnd() * 9);       // 每筆的值
+            const total = n * each;
+            const extra = 1 + Math.floor(rnd() * 5);      // 多一筆
+            const newTotal = total + extra;
+            // (a) 迷思：把「平均」當成「其中一個」→ 直接答 extra 或 each
+            const miscon = rnd() < 0.5 ? extra : each;
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? miscon : newTotal;
+            return {
+                long: true,
+                q: '小明記錄了 ' + n + ' 天的零用錢，每天都是 ' + each + ' 元。'
+                  + '第 ' + (n + 1) + ' 天他拿到 ' + extra + ' 元。'
+                  + '小華說：「這 ' + (n + 1) + ' 天的零用錢加起來一共是 ' + shown + ' 元。」'
+                  + '小華的說法正確嗎？',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。要算「加起來一共多少」，就是把每一筆都加進去：'
+                      + '前 ' + n + ' 天是 ' + each + ' × ' + n + ' = ' + total + ' 元，'
+                      + '再加上第 ' + (n + 1) + ' 天的 ' + extra + ' 元，'
+                      + '一共 ' + total + ' + ' + extra + ' = ' + newTotal + ' 元。'
+                      + (miscon === extra
+                          ? '小華只答了 ' + extra + '，那是「最後一天的金額」——'
+                            + '他漏掉了前面 ' + n + ' 天，只看到題目最後出現的那個數字。'
+                          : '小華只答了 ' + each + '，那是「其中一天的金額」——'
+                            + '他把「每天的錢」誤當成「全部的錢」，忘了要乘以天數。')
+                      + '看到「加起來一共」，就要把每一筆都算進去，不能只挑一個數字。'
+                    : '正確。前 ' + n + ' 天共 ' + each + ' × ' + n + ' = ' + total + ' 元，'
+                      + '加上第 ' + (n + 1) + ' 天的 ' + extra + ' 元，'
+                      + '總共 ' + total + ' + ' + extra + ' = ' + newTotal + ' 元。'
+                      + '注意「一共」問的是總和，不是平均——平均要再除以 ' + (n + 1) + ' 天。'
+            };
+        };
+        gen.fam = 'lgtf.sum6';
+        fam(6, 'tf', 'pro', 0, 'n-III-10', 3, gen);
+    }
+
+    // scope 8：國中比例與基準量（目標年級 >= 8）
+    {
+        const gen = (rnd) => {
+            const orig = 200 + Math.floor(rnd() * 8) * 50;    // 原價
+            const pct = 10 * (2 + Math.floor(rnd() * 7));     // 漲幾 %
+            const up = Math.round(orig * (100 + pct) / 100);
+            const gained = up - orig;
+            // (a) 迷思：把「比原價多 pct%」算成「原價的 pct%」→ 答 gained
+            // (b) 迷思：把「多 pct%」和「是原價的 pct%」搞混 → 答 Math.round(orig*pct/100)
+            const miscon = rnd() < 0.5 ? gained : Math.round(orig * pct / 100);
+            const wrong = rnd() < 0.5;
+            const shown = wrong ? miscon : up;
+            return {
+                long: true,
+                q: '一件外套原本賣 ' + orig + ' 元，因為換季調漲，價格比原價多了 ' + pct + '%。'
+                  + '小傑說：「調漲後這件外套賣 ' + shown + ' 元。」'
+                  + '小傑的說法正確嗎？',
+                options: ['是', '非'],
+                answer: [wrong ? 1 : 0],
+                explain: wrong
+                    ? '不正確。要分清楚「多 ' + pct + '%」和「是原價的 ' + pct + '%」：'
+                      + '「比原價多 ' + pct + '%」表示新價格是原價的 ' + (100 + pct) + '%，'
+                      + '所以是 ' + orig + ' × ' + (100 + pct) + '% = ' + up + ' 元。'
+                      + (miscon === gained
+                          ? '小傑答 ' + gained + '，那是「漲了多少錢」——他把「總共賣多少」和「漲了多少」'
+                            + '搞混了，算完增加量就當成答案。'
+                          : '小傑答 ' + Math.round(orig * pct / 100) + '，那是「原價的 ' + pct + '%」——'
+                            + '他把「比原價『多』' + pct + '%」讀成「原價『是』' + pct + '%」，'
+                            + '這是最常見的基準量錯誤。')
+                      + '「多」和「是」是兩種不同的問法，差的正是那個原價本身。'
+                    : '正確。「比原價多 ' + pct + '%」表示新價格是原價的 ' + (100 + pct) + '%，'
+                      + '也就是 ' + orig + ' × ' + (100 + pct) + '% = ' + up + ' 元'
+                      + '（其中漲了 ' + gained + ' 元）。'
+                      + '基準量是「原價」——增加量要以原價為基準去算，不是以新價。'
+            };
+        };
+        gen.fam = 'lgtf.pct8';
+        fam(8, 'tf', 'challenge', 0, 'n-IV-9', 3, gen);
     }
 
 }
