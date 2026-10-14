@@ -400,9 +400,13 @@
                         <span>上一題</span>
                     </button>
                     <span class="text-xs font-medium text-slate-500">提示：多選題可選擇一個或多個選項</span>
-                    <button onclick="navigateQuestion(1)" id="nextQBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-sm transition-all flex items-center space-x-2">
-                        <span>下一題</span>
-                        <i class="fa-solid fa-arrow-right"></i>
+                    <!-- 最後一題：同一顆按鈕改成「交卷並看解析」。
+                         不要另外放一顆、也不要只是停用下一題——學生看到
+                         「下一題」在最後一題還在，會一直按卻沒反應。
+                         交卷用的綠色是交卷鈕的既有色（bg-emerald-500）。 -->
+                    <button onclick="confirmSubmitExam()" id="nextQBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-sm transition-all flex items-center space-x-2">
+                        <span id="nextQBtnText">下一題</span>
+                        <i class="fa-solid fa-arrow-right" id="nextQBtnIcon"></i>
                     </button>
                 </div>
 
@@ -926,10 +930,16 @@
                 });
             });
 
-            // 題序在這裡才洗牌（drawItems 已改成照優先序回傳，見該函式的說明）。
-            // 只打散題序，不影響已選定的題目集合。
-            const shuffled = shuffle(questions, rng);
-            return { questions: shuffled, targetGrade, needZhuyin, blueprint: bp };
+            // 題型要分段，不要交錯：整份卷子排成「是非 → 單選 → 多選」三塊，
+            // 學生不用每一題重新判斷「這題要選幾個」。段內順序仍然每卷重洗，
+            // 所以同一份藍圖抽兩次不會拿到一樣的題序。只重排、不動題目集合。
+            const byType = { tf: [], single: [], multiple: [] };
+            questions.forEach(q => { (byType[q.type] || (byType[q.type] = [])).push(q); });
+            const ordered = [];
+            ['tf', 'single', 'multiple'].forEach(t => {
+                if (byType[t] && byType[t].length) ordered.push(...shuffle(byType[t], rng));
+            });
+            return { questions: ordered, targetGrade, needZhuyin, blueprint: bp };
         }
 
         // A cheap fingerprint of a materialised question. Two draws of the same
@@ -1707,6 +1717,7 @@
             });
 
             renderQuestionNavGrid();
+            syncNextButton();
         }
 
         function selectOption(optIdx, type) {
@@ -1738,6 +1749,37 @@
             if (newIndex >= 0 && newIndex < currentExam.questions.length) {
                 currentExam.currentIndex = newIndex;
                 loadCurrentQuestion();
+            }
+        }
+
+        /* 右下角那顆按鈕是「下一題」也是「交卷」——同一顆，依題號換功能。
+           放在 loadCurrentQuestion 裡呼叫，翻頁、跳題、開卷都會經過這裡，
+           不會有某條路徑漏掉而讓最後一題還顯示「下一題」。 */
+        function syncNextButton() {
+            const btn = document.getElementById('nextQBtn');
+            if (!btn) return;
+            const last = currentExam.currentIndex >= currentExam.questions.length - 1;
+            // 模式記在 dataset，不去讀 onclick 字串或屬性——getAttribute 在
+            // 測試用的精簡 DOM 上不存在，會整條路徑炸掉。
+            const mode = btn.dataset ? btn.dataset.zyBtnMode : null;
+            if (last) {
+                if (mode !== 'submit') {
+                    btn.setAttribute('onclick', 'confirmSubmitExam()');
+                    btn.className = btn.className.replace(/bg-indigo-600|hover:bg-indigo-700/g,
+                        m => m === 'bg-indigo-600' ? 'bg-emerald-500' : 'hover:bg-emerald-600');
+                    document.getElementById('nextQBtnText').textContent = '交卷並看解析';
+                    document.getElementById('nextQBtnIcon').className = 'fa-solid fa-paper-plane';
+                    if (btn.dataset) btn.dataset.zyBtnMode = 'submit';
+                }
+            } else {
+                if (mode !== 'next') {
+                    btn.setAttribute('onclick', 'navigateQuestion(1)');
+                    btn.className = btn.className.replace(/bg-emerald-500|hover:bg-emerald-600/g,
+                        m => m === 'bg-emerald-500' ? 'bg-indigo-600' : 'hover:bg-indigo-700');
+                    document.getElementById('nextQBtnText').textContent = '下一題';
+                    document.getElementById('nextQBtnIcon').className = 'fa-solid fa-arrow-right';
+                    if (btn.dataset) btn.dataset.zyBtnMode = 'next';
+                }
             }
         }
 
