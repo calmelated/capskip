@@ -1030,6 +1030,22 @@
                 multiple: { basic: 0, pro: 0, challenge: 0 }
             };
             const placedLongOf = { tf: 0, single: 0, multiple: 0 };
+            // 每層候選的排序：名額內的長題最前、短題居中、名額外的長題最後。
+            //
+            // 為什麼需要：placeOne 會用「每型長題上限」擋掉超額長題，而 drawItems
+            // 把長題排在每一層的最前面。長題名額被 pro 層吃掉後，challenge 層開頭
+            // 的長題會被逐題擋掉且**直接丟棄**（shift 之後就沒了），該層因此少一題；
+            // 缺口再被下面的整池補題用 basic 的題填走。實測 math 目標 8/9/10 有
+            // 18-22% 的卷子變成 basic +2 / challenge -2（最差 ±4）。
+            //
+            // 名額內的長題仍然排最前，所以「每型長題數」的行為跟改動前完全一樣；
+            // 只重排、不刪除，因此題數保底也不受影響。
+            const orderTier = (arr, longLeft) => {
+                const longs = [], shorts = [];
+                arr.forEach(it => (it.long ? longs : shorts).push(it));
+                const keep = longs.slice(0, Math.max(0, longLeft | 0));
+                return keep.concat(shorts, longs.slice(keep.length));
+            };
             const placeOne = (it, type, allowLong) => {
                 // 長題名額（卷層級，每型上限）。必須在這裡封頂，不能在 drawItems
                 // 裡：drawItems 為了補題會被呼叫很多次，每次呼叫都重設自己的計數，
@@ -1112,6 +1128,7 @@
                 let placed = 0;
                 // (1) 照配額逐層放
                 tiers.forEach(t => {
+                    queues[t] = orderTier(queues[t], longPerType(bp.long, type) - (placedLongOf[type] || 0));
                     while (queues[t].length && placed < count && (pt[t] || 0) < (qt[t] || 0)) {
                         if (placeOne(queues[t].shift(), type)) placed++;
                     }
@@ -1132,9 +1149,10 @@
                         def[t] = Math.max(0, (qt[t] || 0) - (pt[t] || 0));
                         if (def[t]) anyDef = true;
                     });
-                    const more = drawItems(poolSubject, targetGrade, type, (count - placed) + 2,
+                    const more = orderTier(drawItems(poolSubject, targetGrade, type, (count - placed) + 2,
                         anyDef ? def : { basic: count, pro: count, challenge: count },
-                        rng, sp ? sp.domain : null);
+                        rng, sp ? sp.domain : null),
+                        longPerType(bp.long, type) - (placedLongOf[type] || 0));
                     if (!more.length) break;
                     const before = placed;
                     more.forEach(it => {
@@ -1152,7 +1170,37 @@
                 // 等於每一輪都在重試同一批已被拒的題目，永遠不進展
                 // （實測 chinese|3 每卷少 2 題）。抽滿整個池子，讓 placeOne
                 // 自己去篩，才碰得到後面的新題。
-                for (let round = 0; placed < count && round < 4; round++) {
+                // (3a) 先顧配額、且**仍然守住長題名額**。
+                // 只要還有某一層欠配額，就只從那一層補——否則 drawItems 的順序
+                // （basic 最前）會讓缺口被 basic 填走，實測 math 目標 9 就是這樣
+                // 變成 basic +2 / challenge -2（HEAD 全庫實測 1.49% 的卷子如此，
+                // 最差 ±3）。長題名額也照守，免得為了湊題數多放一題長題。
+                const deficitOf = () => {
+                    const d = {}; let any = false;
+                    tiers.forEach(t => {
+                        d[t] = Math.max(0, (qt[t] || 0) - (pt[t] || 0));
+                        if (d[t]) any = true;
+                    });
+                    return any ? d : null;
+                };
+                for (let round = 0; placed < count && round < 6; round++) {
+                    const def3 = deficitOf();
+                    const more = orderTier(drawItems(poolSubject, targetGrade, type, count * 4,
+                        def3 || { basic: count, pro: count, challenge: count },
+                        rng, sp ? sp.domain : null, 0),
+                        longPerType(bp.long, type) - (placedLongOf[type] || 0));
+                    if (!more.length) break;
+                    const before = placed;
+                    more.forEach(it => {
+                        if (placed >= count) return;
+                        if (def3 && (pt[it.diff] || 0) >= (qt[it.diff] || 0)) return; // 這層不缺了
+                        if (placeOne(it, type)) placed++;   // allowLong 仍為 false
+                    });
+                    if (placed === before) break;
+                }
+                // (3b) 真的還是湊不滿才放行長題名額——「絕不出短卷」優先於名額。
+                // 這一段正常是死碼，留著是為了讓題數保底不會因為長題名額而失效。
+                for (let round = 0; placed < count && round < 3; round++) {
                     const more = drawItems(poolSubject, targetGrade, type, count * 4,
                         { basic: count, pro: count, challenge: count }, rng, sp ? sp.domain : null, 0);
                     if (!more.length) break;
