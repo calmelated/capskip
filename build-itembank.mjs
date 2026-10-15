@@ -295,10 +295,18 @@ const AUTHORED = {
         { diff: 'pro', q: '歷史課上，老師要同學比較兩份關於一九三○年代臺灣某糖廠的資料。資料一是一則地方報紙的報導：「本廠引進新式壓榨機後，產量大增，工人薪資也隨之調高，地方繁榮可期。」資料二是該廠當年會計帳冊的摘要：砂糖產量確實逐年上升，但工資總支出占生產成本的比例，卻從百分之四十二降為百分之三十。老師補充說明：報紙報導常反映經營者或地方仕紳的立場；帳冊則由糖廠內部人員記錄，主要是為了向總督府申報營運狀況。同學們據此展開討論。請問：下列哪些說法可以從材料得到支持（可多選）', options: ['兩份資料對砂糖產量的說法一致，都指出產量上升。', '帳冊記載工資占成本的比例由四十二降到三十，可見工人實領的薪資總額也少了百分之十二。', '帳冊是廠內人員為向總督府申報而記錄，報紙則可能反映經營者或地方仕紳的立場，兩者的記錄目的不同。', '報紙出自本地又是公開報導，立場應比供內部申報的帳冊更客觀可信。'], answer: [0, 2], explain: '本題考「史料批判」與「分辨材料直接資訊、讀者推論」。可支持者：兩份資料都說產量上升，是可互相印證的一致處（選項0）；老師已說明帳冊為向總督府申報而由廠內人員記錄、報紙可能反映經營者或仕紳立場，正是提示比較時要看立場與記錄目的（選項2）。迷思一「把比例當絕對金額」（選項1）：把「工資占成本比例由四十二降為三十」讀成「實領薪資總額少了百分之十二」；比例下降可能來自產量與其他成本同時變動，單看比例無法斷定實領金額的增減。迷思二「把公開或貼近誤當客觀」（選項3）：資料可信與否要看記錄目的與立場，報紙公開、出自本地並不使它比申報用的帳冊更客觀，這是訴諸形式而非檢驗來源。', long: true },
     ],
     'english|4|tf': [
+        { diff: 'challenge', q: 'Read: "Dad put a plate of biscuits on the table and said to Ken, \'One biscuit is for you and one is for your sister.\' Ken took one, and a minute later he came back and took the last one too." From this passage, we know that Ken left the last biscuit for his sister.', options: ['是', '非'], answer: [1], explain: '正確（非）。爸爸已經把分配講清楚：一塊給 Ken、一塊給妹妹。Ken 先拿了一塊，一分鐘後又回來把最後一塊也拿走，所以妹妹那一塊他並沒有留。主要干擾是只看到題目裡的 left ... for his sister，聯想到爸爸提過妹妹就答「是」，卻沒把「又回來拿走最後一塊」這個動作讀進去。要答對必須把爸爸的分配與 Ken 的第二個動作接起來。', long: true },
+        // 長題（閱讀材料）：題幹本身 ≥90 字（LONG_MIN_STEM 的年段門檻），
+        // 一律掛在 pro / challenge——長題是「多花時間讀」的題，不能佔 basic 的格。
+        { diff: 'pro', q: 'Read: "Amy has a dog named Lucky. Every morning, Amy takes Lucky to the park before school, and Lucky loves to run after a red ball there." From this passage, we know that Amy takes her dog to the park in the morning.', options: ['是', '非'], answer: [0], explain: '正確（是）。題目問的是「從這段文字可以得知什麼」，短文第一句就明白寫著 Every morning, Amy takes Lucky to the park before school：morning 與 before school 互相印證，所以答案為「是」。主要干擾是誤選「非」的人多半把 every morning 讀成「某一天早上」（把頻率副詞當成單次事件），於是覺得「只有一次」不能推成「早上都會去」。要答對得先分清 Amy（人）與 Lucky（狗名），再確認 park 是地點、before school 是時間點，這是一段需要逐句對位的閱讀。', long: true },
+        { diff: 'challenge', q: 'Read: "Ben wanted to buy a toy car, but he only had fifty dollars and the toy car cost eighty dollars. So Ben put his money back in his pocket and walked home." From this passage, we know that Ben bought the toy car.', options: ['是', '非'], answer: [1], explain: '正確（非）。要答對得把兩個數字與一個動作串起來：玩具車要八十元、Ben 只有五十元（不夠），所以他「把錢放回口袋、走回家」——這是「沒買成」的明示。主要干擾是看到 buy、money、toy car 這些關鍵字就斷定交易完成，把 put his money back（把錢放回去）誤讀成 paid the money。選「是」正是那個迷思：只抓題目裡的關鍵字，卻不看轉折詞 but 與結果詞 so 後面的句子。', long: true },
         { diff: 'basic', q: 'In English, we say "Good morning" to greet someone in the morning.', options: ['是', '非'], answer: [0], explain: '正確（是）。"Good morning" 是英文早上見面時的招呼語，用於問候，國小中年級課本裡的 Greetings 單元一定會教。選「非」的干擾點在於把招呼語和道別語混在一起："Good night" 是晚上要離開或睡前說的道別語，不是用來跟人道早上的招呼，所以這題不能選「非」。' },
         { diff: 'pro', q: 'In the sentence "I go to school by bus," the word "by" tells us how the speaker goes to school.', options: ['是', '非'], answer: [0], explain: '正確（是）。這題要先把句子拆成「主詞 I / 動作 go / 方式 by bus」，再判斷 by 的功能：by + 交通工具（by bus、by bike、by train）表示「搭乘某種交通工具」的方法，所以 by 正是在說明「怎麼去」。要選對得先辨認 by bus 是一個片語、再理解它回答的是 how，這是兩步推理。選「非」的主要干擾來自分不清 by 的用法：by 也可以表示「在……旁邊」（如 by the door），但在這個句子裡後面接的是交通工具，講的是方式而不是位置，所以不能因為 by 有其他意思就判它無關。' },
     ],
     'english|4|single': [
+        { diff: 'challenge', q: 'Read: "It was the first day of school. May walked to the classroom door and stopped. She stood outside for a long time and looked at the floor. Then the teacher smiled and said, \'Come in and sit next to me.\' May smiled back and walked in." How did May feel before the teacher spoke to her?', options: ['Shy and unsure.', 'Angry and noisy.', 'Hungry and sleepy.', 'Happy and brave.'], answer: [0], explain: '正確答案是 Shy and unsure.：短文要讀的是動作而不是形容詞——她在門口停下來、站了很久、一直看著地板，這三個動作合起來才推得出「害羞、不知道該不該進去」。主要干擾是 Happy and brave.：它和最後一句 May smiled back 相符，但題目問的是「老師開口之前」，把後面的結果拿來回答前面的問題，是本題設的時序陷阱。Angry and noisy. 與 Hungry and sleepy. 在文本裡都找不到依據，屬於憑常識猜答案。', long: true },
+        { diff: 'pro', q: 'Read: "It is raining hard outside. Lily looks at her umbrella by the door, and then she sees the school bus coming down the street." What will Lily most likely do?', options: ['Take the bus to school.', 'Walk to school in the rain.', 'Stay home and not go to school.', 'Wait at home until the rain stops.'], answer: [0], explain: '正確答案是 Take the bus to school.：要把三個線索連起來——外面下大雨（不適合走路上學）、門口有傘（她確實要出門）、校車正沿著街開過來（車已經到了）。主要干擾項 Walk to school in the rain. 是誤以為有傘就該走路，但題目特別寫出 raining hard 與 the school bus coming，兩者合起來指向搭車；Stay home 與 Wait until the rain stops 都忽略了「校車已經來了」這個決定性的線索，屬於沒讀完短文就作答。', long: true },
+        { diff: 'challenge', q: 'Read: "Tom\'s mother asked him to buy two apples and three oranges. At the shop, the apples were sold out, so Tom bought four oranges and one pear instead." Which sentence is true?', options: ['Tom bought more oranges than his mother asked for.', 'Tom bought exactly what his mother asked for.', 'Tom bought two apples after all.', 'Tom bought nothing at the shop.'], answer: [0], explain: '正確答案是 Tom bought more oranges than his mother asked for.：媽媽要三顆橘子，Tom 買了四顆（四個＞三個）。這題要先把「要求」與「結果」分成兩組數字再比大小。主要干擾項 Tom bought exactly what his mother asked for. 是把 bought four oranges 誤讀成 three oranges；Tom bought two apples after all. 則是完全漏看 the apples were sold out（蘋果賣完了）這句轉折；Tom bought nothing 更是與 bought four oranges and one pear 直接矛盾。', long: true },
         { diff: 'basic', q: 'It is 8 o\'clock in the morning. You meet your teacher at school. What do you say?', options: ['Good morning!', 'Good night!', 'Good afternoon!', 'Good evening!'], answer: [0], explain: '正確答案是 Good morning!——早上（中午 12 點前）見面時的問候語。主要干擾項 Good night! 是「晚安」，用於晚上道別或睡前，不是早上見面說的；Good afternoon 是下午見面用，Good evening 是傍晚／晚上見面用，時間都不對。' },
         { diff: 'basic', q: 'Which one is a drink?', options: ['milk', 'rice', 'bread', 'cake'], answer: [0], explain: '正確答案是 milk（牛奶），它是飲料。主要干擾項 rice（飯）、bread（麵包）、cake（蛋糕）都是食物（food），不是用喝的飲料，因此不符合題目問的 drink。' },
         { diff: 'pro', q: 'Tom is older than Jack. Jack is older than Ben. Who is the youngest?', options: ['Ben', 'Jack', 'Tom', 'Amy'], answer: [0], explain: '需要把兩句話串起來推理：Tom 比 Jack 大，Jack 又比 Ben 大，所以年齡順序是 Tom > Jack > Ben，最小的是 Ben。主要干擾項 Jack 是中間那個（只比 Tom 小），Tom 反而是最大的；Amy 則完全沒出現在句子裡，是無關的干擾項。' },
@@ -311,14 +319,19 @@ const AUTHORED = {
         { diff: 'pro', q: 'Select all the sentences where the verb agrees with the subject.', options: ['She likes apples.', 'He go to the park.', 'My brother plays the piano.', 'They watches TV.'], answer: [0, 2], explain: 'With a third-person singular subject (he, she, it, or a singular noun like \'my brother\'), the present-tense verb takes -s: \'She likes\' and \'My brother plays\' are correct because \'likes\' and \'plays\' agree with their subjects. \'He go to the park\' is wrong because the singular subject \'he\' needs \'goes\', and \'They watches TV\' is wrong because the plural subject \'they\' needs \'watch\' without -s. So the correct answers are the two sentences where the verb matches its subject.' },
     ],
     'english|6|tf': [
+        { diff: 'challenge', q: 'Read: "Mr. Wu opened a small bookshop ten years ago. Last year a big chain store opened on the same street and sold books at much lower prices. Mr. Wu now sells coffee beside his books, and his shop is busy every afternoon." From this passage, we know that Mr. Wu\'s bookshop has closed because of the chain store.', options: ['是', '非'], answer: [1], explain: '正確（非）。短文確實提到連鎖店去年開幕、書賣得便宜很多，但最後一句說 Mr. Wu 現在在書旁邊賣咖啡、店裡每天下午都很忙——可見店還開著，而且換了做法。主要干擾是看到 a big chain store ... sold books at much lower prices 就推成「小說店撐不下去關門了」，把「遇到競爭」直接等同「結束營業」，忽略了最後一句。要答對得讀完整段，分清「有壓力」與「已經倒閉」是兩件事。', long: true },
+        { diff: 'pro', q: 'Read: "Kevin usually walks to school, but this week his bike is broken, so he takes the bus instead. He still gets to school at the same time every day." From this passage, we know that Kevin takes the bus to school every day.', options: ['是', '非'], answer: [1], explain: '正確（非）。短文寫的是 usually walks（平常走路）與 this week ... takes the bus（這星期才搭公車），兩個時間範圍不同，不能把「這星期」推成「每天」。主要干擾是只看到 takes the bus 這個片語就答「是」，忽略 usually 與 this week 的對比。要答對得先讀懂 but 的轉折與 this week 的限定範圍——這正是「讀完整段再判斷」與「抓關鍵字就作答」的差別。', long: true },
+        { diff: 'challenge', q: 'Read: "The sign on the library door says, \'Quiet please. No food or drinks inside.\' Jenny walked in with a bottle of water in her bag and a sandwich in her hand." From this passage, we know that Jenny is allowed to eat her sandwich inside the library.', options: ['是', '非'], answer: [1], explain: '正確（非）。告示明白寫著 No food or drinks inside，三明治是食物、水是飲料，兩者都在禁止之列，所以「被允許在館內吃三明治」是錯的。主要干擾是讀到 Jenny walked in with ... a sandwich 就以為題目在問「她有沒有帶三明治」（有），但題目問的是「她是否被允許在裡面吃」。要答對必須分清「帶進去」與「在裡面吃」是兩件事，也要真的讀到 No food or drinks 這一句。', long: true },
         { diff: 'basic', q: 'In English, the word "breakfast" means the first meal of the day.', options: ['是', '非'], answer: [0], explain: '正確（答「是」）。"breakfast" 專指一天當中的第一餐，也就是早餐，是台灣國小高年級英語課程常見的生活字彙。主要干擾項：若把 breakfast 誤記成午餐，就會答「非」——但午餐是 "lunch"，早餐才是 "breakfast"，兩者不可混淆。' },
         { diff: 'pro', q: 'In English, the sentence "She doesn\'t like apples" is the correct negative form of "She likes apples".', options: ['是', '非'], answer: [0], explain: '正確（答「是」）。現在式遇到第三人稱單數主詞（she）時，否定要用 doesn\'t + 原形動詞：likes 要還原成 like，成為 "She doesn\'t like apples"。主要干擾項：若把動詞照原樣寫成 "She doesn\'t likes apples"（動詞沒還原），或助動詞沒配合主詞而寫成 "She don\'t like apples"，就會答「非」。判斷此題需先掌握第三人稱單數現在式的否定規則，再確認 like 已還原為原形，屬兩步推理。' },
     ],
     'english|6|single': [
+        { diff: 'pro', q: 'Read: "Lisa studied hard for the test, but she was still very nervous. When the teacher gave back the papers, Lisa saw a big red 95 on hers." How did Lisa most likely feel after she saw her paper?', options: ['Happy and relieved.', 'Angry at the teacher.', 'Bored and sleepy.', 'Sorry for her classmates.'], answer: [0], explain: '正確答案是 Happy and relieved.：短文先給「她很緊張」（very nervous），再給「考卷上是一個大大的紅色 95」。要答對得把「考前緊張」與「考後看到高分」兩句接起來，推出緊張消失了、心情變好。主要干擾項是把 nervous 當成她看到考卷後的心情（把前一句的狀態錯當成後一句的結果）；Angry at the teacher 完全沒有文本依據，屬於憑常識猜答案。', long: true },
+        { diff: 'challenge', q: 'Read: "The Chen family planned a picnic on Saturday. On Friday night it rained all night, and on Saturday morning the ground was still wet. The family decided to eat at home instead." Why did the family change their plan?', options: ['Because the ground was too wet for a picnic.', 'Because they did not like picnics.', 'Because their friends could not come.', 'Because the food was not ready yet.'], answer: [0], explain: '正確答案是 Because the ground was too wet for a picnic.：短文給了「下了一整夜的雨」與「早上地上還是濕的」兩個因，接著才是「改在家裡吃」這個果，因果關係要靠讀者自己接起來。主要干擾項 they did not like picnics 與 the food was not ready 都是文本完全沒提到的憑空理由；their friends could not come 是拿「野餐通常會約朋友」的常識去補一個文本沒有的原因——四種干擾正好對應「沒讀到因果」「憑常識編理由」兩種迷思。', long: true },
         { diff: 'basic', q: 'Choose the correct word: "____ are my new shoes."', options: ['These', 'This', 'That', 'It'], answer: [0], explain: 'The noun "shoes" is plural, so the plural demonstrative "These" is correct. "This" and "That" point to a single thing, and "It" is a singular pronoun, so none of them can agree with the plural "shoes".' },
         { diff: 'basic', q: 'Choose the correct word: "There is a picture ____ the wall."', options: ['on', 'in', 'at', 'of'], answer: [0], explain: 'We use "on" for something attached to a surface, so "on the wall" is correct. The main distractor "in" would mean the picture is inside the wall itself, and "at" and "of" do not express position on a surface here.' },
         { diff: 'pro', q: 'Choose the correct words: "Every morning Tom ____ to school, but today he ____ a bus."', options: ['walks / is taking', 'walk / takes', 'is walking / takes', 'walks / takes'], answer: [0], explain: 'The first clause describes a daily habit ("every morning"), so the present simple "walks" is needed; the second clause describes what is happening today/now, so the present continuous "is taking" is needed. The tempting distractor "walks / takes" is wrong because it uses the simple present for both, missing the habit-vs-now contrast.' },
-        { diff: 'pro', q: 'Amy is 150 cm tall. Ben is 155 cm tall. Which sentence is correct?', options: ['Ben is taller than Amy.', 'Amy is taller than Ben.', 'Ben is the tallest of the two.', 'Amy is as tall as Ben.'], answer: [0], explain: '【問題：與既有題近重複，建議刪除】本題與 build-itembank.mjs:149（同一 english|6 pro band 的既有題）幾乎相同：都是「A 是 150 cm、另一人更高」的比較級題，正解選項文字同為『Ben/Tom is taller than Amy/Ben.』，干擾項也重疊。兩題會進同一個 english|6 池（本題在 single、既有題在 multiple），同一份高年級試卷有很高機率同時抽到，違反『題目間不得重複或近似』。除此之外本題本身沒有錯：Ben(155) > Amy(150)，正解『Ben is taller than Amy.』正確；干擾項『Ben is the tallest of the two.』確實錯（兩人比較須用比較級 taller，不能用最高級）。建議直接刪除本題，不要再產生一個換名字的同型題。' },
+        { diff: 'pro', q: 'Read: "Mr. Chen asked his class to bring one thing for show-and-tell. Sally brought a small wooden box. When she opened it, the class saw that the box was full of old stamps." What did Sally bring to show-and-tell?', options: ['A box with old stamps inside it.', 'Only the stamps, without any box.', 'A wooden box that was empty.', 'A box that Mr. Chen gave her.'], answer: [0], explain: '正確答案是 A box with old stamps inside it.：短文先說她帶來一個小木盒，又說打開後裡面裝滿舊郵票，兩句合起來才是她帶去展示的東西。主要干擾項 Only the stamps, without any box. 是只讀到最後出現的名詞，把盒子漏掉；A wooden box that was empty. 與 full of old stamps 正好相反，是把「打開盒子」的動作讀成「盒子是空的」；A box that Mr. Chen gave her. 則是把「老師出的作業」誤記成「老師送的盒子」，文本只說老師要求大家帶東西。要答對必須把「帶來什麼」和「裡面裝什麼」兩句接起來。', long: true },
     ],
     'english|6|multiple': [
         { diff: 'basic', q: 'Which of these numbers are between ten and twenty?', options: ['twelve', 'seven', 'fifteen', 'thirty'], answer: [0, 2], explain: 'Twelve (12) and fifteen (15) are between 10 and 20. \'Seven\' (7) is below ten and \'thirty\' (30) is above twenty, so each is a wrong-range distractor.' },
@@ -329,18 +342,27 @@ const AUTHORED = {
         { diff: 'pro', q: 'Read: "Amy is from Canada. She speaks English and French." Which sentences are correct?', options: ['Amy comes from Canada.', 'Amy can speak two languages.', 'Amy is from France.', 'Amy speaks English.'], answer: [0, 1, 3], explain: '\'From Canada\' means she comes from Canada; English and French are two languages, so she can speak two languages and she speaks English. The distractor \'Amy is from France\' is wrong: Canada and France are different countries, and the text says Canada.' },
     ],
     'english|8|tf': [
+        { diff: 'challenge', q: 'Read: "A town gave every family a free bin with two parts, one for food waste and one for paper. Six months later the town found that the rubbish sent to the dump had fallen by a third, but the amount of food waste mixed into the paper part had also gone up." From this passage, we know that the two-part bin completely solved the town\'s rubbish problem.', options: ['是', '非'], answer: [1], explain: '正確（非）。短文給了兩個結果：送進掩埋場的垃圾少了三分之一（有改善），但混進紙類那一格的食物殘渣也變多了（出現了新問題）。主要干擾是只讀到 had fallen by a third 這句好消息就答「是」，把「減少」直接等同「完全解決」；另一種誤讀是把 but 之後的壞消息當成題目在問的事。要答對必須同時看到 but 兩邊的結果，並注意 completely 這種絕對詞在文本裡並沒有依據。', long: true },
+        { diff: 'pro', q: 'Read: "When the new supermarket opened, the small shop on the corner lost many customers. After three months the shop began selling fresh bread that the supermarket did not have, and its old customers slowly came back." From this passage, we know that the small shop closed down after the supermarket opened.', options: ['是', '非'], answer: [1], explain: '正確（非）。短文只說小店 lost many customers（客人變少），後段更說 old customers slowly came back（老客人慢慢回來了），可見它沒有倒閉。主要干擾是看到 lost many customers 就推成「撐不下去、關門了」——把「生意變差」直接等同「結束營業」，這是閱讀推論最常見的過度延伸。要答對得讀到最後一句的回流，並分清「敘述裡的結果」與「自己補的結果」。', long: true },
+        { diff: 'challenge', q: 'Read: "The city built a new road through the forest so that cars could travel faster between two towns. A year later, scientists found that many wild animals no longer crossed to the other side of the forest to look for food." From this passage, we know that the new road made it harder for some animals to move through the forest.', options: ['是', '非'], answer: [0], explain: '正確（是）。題目問的是「可從短文得知」的結論：修路是為了讓車走得更快（人為目的），一年後動物 no longer crossed（不再穿越）去覓食（觀察結果）。把這兩句接起來，才能得到「道路讓部分動物更難穿越森林」這個推論。主要干擾是誤選「非」的人認為短文只講了兩件事、沒有明說因果，但題目用的是 From this passage, we know——允許把「人為開路」與「動物不再穿越」兩項事實合成一個合理結論。', long: true },
         { diff: 'pro', q: '"Despite the heavy rain, the game went on as planned." In this sentence, "despite" introduces a reason (cause) — it shows why the game continued.', options: ['是', '非'], answer: [1], explain: '"Despite" means 儘管…仍 (in spite of), introducing a contrast or obstacle, NOT a cause. The phrase "despite the heavy rain" tells us the heavy rain did not stop the game; it does not explain why the game continued. If a cause were intended we would need "because of," which gives the opposite logical relation — so the statement is false.' },
         { diff: 'pro', q: '"May I borrow your umbrella?" and "Could you lend me your umbrella?" can both be used to ask for the same thing.', options: ['是', '非'], answer: [0], explain: 'borrow means 借入 (the subject receives the thing) and lend means 借出 (the subject gives it). In the first sentence "I" borrow from you; in the second "you" lend to me — in both cases the umbrella ends up with the speaker, so they are the same request from different angles. Main distractor: learners treat borrow and lend as exact synonyms, but they are used on opposite sides (I borrow / you lend), so you cannot simply swap them in one sentence.' },
     ],
     'english|8|single': [
+        { diff: 'pro', q: 'Read: "Mr. Wang has taught at the same school for thirty years. When the school asked him to try a new online teaching system, he spent his evenings learning it, and his students said his classes became more interesting." Which sentence best describes Mr. Wang?', options: ['He is willing to learn new things even after many years of teaching.', 'He refuses to change the way he teaches.', 'He wants to leave the school very soon.', 'He thinks online teaching is useless.'], answer: [0], explain: '正確答案是 He is willing to learn new things even after many years of teaching.：要把三個事實合成一個人格判斷——教了三十年（資深）、學校請他試新系統時他花晚上去學（願意學）、學生說課變得更有趣（結果正面）。主要干擾項 He refuses to change 正好與 spent his evenings learning it 相反，是把「資深」直接等同「守舊」的刻板印象；He thinks online teaching is useless 則與學生覺得更有趣的結果矛盾。', long: true },
+        { diff: 'challenge', q: 'Read: "The students wanted to hold a charity sale to help a classmate whose house had burned down. They had no money to buy things to sell, so they brought books and toys from their own homes and sold those instead." What problem did the students have, and how did they solve it?', options: ['They had nothing to sell, so they used things from their own homes.', 'They had no place to hold the sale, so they used their classroom.', 'They had no customers, so they asked their parents to come.', 'They had too many things, so they gave some of them away.'], answer: [0], explain: '正確答案是 They had nothing to sell, so they used things from their own homes.：題目一次問兩件事（問題＋解法），必須在短文裡各找到一句——問題是 They had no money to buy things to sell，解法是 they brought books and toys from their own homes。主要干擾項都是把「問題」換成文本沒有的版本（沒有場地／沒有客人／東西太多），對應的迷思是只抓 so 後面的解法、卻把問題那一句自行編造。', long: true },
         { diff: 'basic', q: 'Which word is a fruit?', options: ['carrot', 'apple', 'chair', 'pencil'], answer: [1], explain: 'Apple 是水果 (fruit)。carrot 是蔬菜 (vegetable)，chair 是家具，pencil 是文具。主要干擾項 carrot 因為也是「吃的东西」容易被誤選。' },
         { diff: 'basic', q: 'Choose the correct word: "I go to school ___ bus every morning."', options: ['on', 'with', 'by', 'in'], answer: [2], explain: 'by bus 是固定用法（by + 交通工具，不加冠詞），表示「搭公車」。主要干擾項 on 只用在 on foot 或 on the bus（需加冠詞 the）時，句中沒有冠詞故不對；with 通常指「和某人一起」，in 用於 in a car 這類需冠詞的搭配。' },
-        { diff: 'pro', q: 'A: Where is Tom?\nB: He ___ to the library. He will be back at five.', options: ['has gone', 'has been', 'went', 'is going'], answer: [0], explain: '此題原設計不良：句中「He will be back at five」並沒有語法強制只有 has gone 可填，is going（＝正在前往圖書館，五點回來）在此在英語裡同樣自然通順。原 explain 卻說 is going「與 will be back at five 的語境不合」，這個理由站不住腳，而且 has been 與 is going 兩個選項都有語法合格的可能，屬「一個題目有兩個（以上）選項都對」的瑕疵。建議加明確語境（例如補上「Tom 現在不在家 / 你找不到他」或問 "Why can\'t you find Tom? He ___ to the library."）讓 has gone 成為唯一正解後再收錄。' },
+        { diff: 'pro', q: 'Read: "A: Tom isn\'t in his room, and he isn\'t in the garden. Where is he? B: He ___ to the library. He won\'t be back until five o\'clock this afternoon." Which option correctly completes B\'s answer?', options: ['has gone', 'has been', 'goes', 'went'], answer: [0], explain: '正確答案是 has gone。B 說「他到圖書館去了，下午五點以前不會回來」，has gone to 表示「已經去了、人現在不在這裡」，與 A 到處找不到他完全吻合。主要干擾項 has been to 的意思是「曾經去過（而且現在已經回來了）」，如果 Tom 已經回來，就不會「五點以前不會回來」，語意直接衝突——這是本題最容易誤選的選項，因為兩個選項只差一個過去分詞。went 是單純過去式，只敘述過去某個動作，無法交代「他現在不在、五點才回來」的現況。goes 是現在簡單式，用來描述習慣（他每天都去），與只講這一次的語境不合。', long: true },
         { diff: 'pro', q: 'She decided ___ a new bike with her pocket money.', options: ['buying', 'buy', 'bought', 'to buy'], answer: [3], explain: '動詞 decide 後面要接 to + 原形動詞（decide to do something）。主要干擾項 buying 是動名詞，decide 不接 V-ing；buy 與 bought 都缺少 to，語法錯誤。' },
         { diff: 'pro', q: 'The window ___ by the boy yesterday afternoon.', options: ['broke', 'was broken', 'is broken', 'breaks'], answer: [1], explain: '主詞 the window 是「被打破」的，且時間是過去 (yesterday afternoon)，需用過去被動 was + 過去分詞 broken。主要干擾項 broke 是主動過去式，窗戶不會自己打破；is broken 是現在被動，時態與過去時間不符；breaks 是現在式。' },
         { diff: 'challenge', q: 'Neither the teacher nor the students ___ happy with the new schedule.', options: ['are', 'is', 'was', 'be'], answer: [0], explain: 'neither A nor B 的動詞要與「最靠近的主詞」一致（就近原則 proximity rule）。最靠近的是複數 the students，故用複數 are。主要干擾項 is / was 是單數，誤以為要跟前面的 the teacher 一致（這是本題設的陷阱）；be 是原形，不能單獨當主要動詞。本題同時考連接詞 neither...nor 與主謂一致兩個概念。' },
     ],
     'english|8|multiple': [
+        { diff: 'pro', q: 'Read: "A school tried a new rule: phones must be put in a box at the start of every lesson. After one term, teachers said students talked to each other more during breaks. However, some students said they now used their phones longer on the way home." Select all the statements that this passage supports.', options: ['The rule changed something about how students behave.', 'The rule stopped students from using phones completely.', 'Students used their phone time at a different part of the day.', 'The rule made every student happier.'], answer: [0, 2], explain: '正確答案是第 1、3 句：短文說老師發現下課時學生彼此聊天變多了（行為有改變），又說有些學生回家的路上用手機的時間變長了（用手機的時間只是挪到別的時候）。兩個干擾項都栽在絕對詞上：The rule stopped students from using phones completely. 與短文最後一句直接衝突——如果真的完全不用了，就不會有人回家路上用得比以前久；The rule made every student happier. 是短文沒有提到的情緒判斷，而且短文只說 some students 有意見，不是 all。要答對得留意 completely、every 這類字，並分清 some 與 all。', long: true },
+        // 多選長題也要有「Select all」標記（validate-corrections 會檢查）。
+        { diff: 'pro', q: 'Read: "For years the town threw its used plastic bottles into the river. Last year a group of students started a recycling programme, and the river is now much cleaner. The town also put up signs asking people to take their rubbish home." Select all the sentences that are supported by the passage.', options: ['The river used to be polluted by plastic bottles.', 'Students took action to solve the problem.', 'The town banned all plastic bottles by law.', 'The town tried to change people\'s habits with signs.'], answer: [0, 1, 3], explain: '正確答案是第 1、2、4 句：短文說「多年來把寶特瓶丟進河裡」（所以河曾被汙染）、「一群學生開始做回收」（所以學生採取了行動）、「鎮上立了告示請大家把垃圾帶回家」（所以是用告示改變習慣）。干擾項 The town banned all plastic bottles by law. 是文本沒有的——短文的動作只有 put up signs（立告示），把它推成「立法禁用」是過度推論。要答對得逐項回文本對位，不能因為選項聽起來合理就選。', long: true },
+        { diff: 'challenge', q: 'Read: "A study found that students who slept fewer than six hours before a test scored lower than those who slept eight hours. However, the study also noted that the students who slept less often spent that time studying more." Select all the conclusions that this passage actually supports.', options: ['There is a link between sleeping less and lower test scores.', 'Sleeping less always causes lower test scores.', 'The students who slept less were not simply lazy.', 'Studying more always leads to higher test scores.'], answer: [0, 2], explain: '正確答案是第 1、3 句：研究發現的是「相關」（睡得少的人分數較低），而 However 那句又指出睡得少的人是拿時間去讀書，所以不能說他們「懶」。兩個干擾項的問題都出在 always：短文的資料只支持「有關聯」，把它讀成「一定造成」是把相關當因果；第 4 句同理，短文從沒說「讀得多一定考得高」。要答對得特別注意 always 這種絕對詞，以及 However 帶出的補充條件。', long: true },
         { diff: 'basic', q: 'Select all the POSSESSIVE ADJECTIVES.', options: ['my', 'your', 'he', 'their'], answer: [0, 1, 3], explain: '\'My\', \'your\', and \'their\' are possessive adjectives because they come before a noun and show who owns it (my bag, your book, their school). \'He\' is a subject pronoun, not a possessive adjective — the possessive form is \'his\'.' },
         { diff: 'basic', q: 'Select all the words that are FAMILY members.', options: ['uncle', 'cousin', 'doctor', 'aunt'], answer: [0, 1, 3], explain: '\'Uncle\', \'cousin\', and \'aunt\' are all family members. \'Doctor\' is a job/profession, not a family relationship, so it is the distractor.' },
         { diff: 'pro', q: 'Select all the sentences that use the COMPARATIVE form correctly.', options: ['This book is more interesting than that one.', 'She is taller than her sister.', 'He is more taller than me.', 'Today is more hot than yesterday.'], answer: [0, 1], explain: 'Long adjectives take \'more\' + adjective (\'more interesting\'), and short one-syllable adjectives take -er (\'taller\'), so sentences 1 and 2 are correct. Sentence 3 uses a double comparative (\'more taller\'); only one comparative marker is allowed, so it should be just \'taller\'. Sentence 4 is wrong because a one-syllable adjective like \'hot\' takes -er, giving \'hotter\', not \'more hot\'.' },
@@ -460,19 +482,19 @@ function buildChinese() {
                     { diff: 'basic', q: '水結成冰時體積會變大。', options: ['是', '非'], answer: [0], explain: '水結冰時體積膨脹，所以冰會浮在水面上。' },
                     { diff: 'basic', q: '植物行光合作用需要陽光。', options: ['是', '非'], answer: [0], explain: '光合作用需要光、水與二氧化碳。' },
                     { diff: 'pro', q: '所有會飛的動物都是鳥類。', options: ['是', '非'], answer: [1], explain: '蝙蝠會飛但屬於哺乳類，不是鳥類。' },
-                    { diff: 'pro', q: '聲音可以在真空中傳播。', options: ['是', '非'], answer: [1], explain: '聲音需要介質，真空中無法傳播。' },
+                    { diff: 'pro', q: '把正在響的鬧鐘放進玻璃罩並抽掉裡面的空氣後，鈴聲會變得幾乎聽不見。', options: ['是', '非'], answer: [0], explain: '聲音需要介質才能傳播；抽掉空氣後沒有介質，鈴聲就傳不出來。這題要學生讀懂「抽掉空氣」這個動作對傳聲的影響，而不是背「聲音不能在真空傳播」這句結論。' },
                     { diff: 'challenge', q: '食鹽溶於水後，水溶液的重量等於鹽加水原來的總重。', options: ['是', '非'], answer: [0], explain: '溶解是物理變化，質量守恆。' }
                 ],
                 single: [
                     { diff: 'basic', q: '下列哪一種動物是卵生？', options: ['雞', '狗', '牛', '貓'], answer: [0], explain: '雞生蛋孵出小雞，是卵生動物。' },
-                    { diff: 'basic', q: '下列哪一種是天氣現象？', options: ['下雨', '地震', '火山爆發', '潮汐'], answer: [0], explain: '下雨屬於天氣現象，其餘是地質或天文現象。' },
+                    { diff: 'basic', q: '下列哪一項最可能在同一天之內由晴轉雨、再放晴？', options: ['天氣', '氣候', '地層', '月相'], answer: [0], explain: '天氣是短時間內大氣狀態的變化，一天之內就可能改變；氣候是長期的平均，不會一天變三次。這題要學生分辨「短時間變化」與「長期平均」兩個概念。' },
                     { diff: 'pro', q: '腳踏車煞車時，是運用什麼力讓車停下來？', options: ['摩擦力', '磁力', '彈力', '重力'], answer: [0], explain: '煞車皮與輪圈摩擦產生摩擦力，使車減速。' },
                     { diff: 'pro', q: '下列哪一種能源屬於再生能源？', options: ['太陽能', '煤', '石油', '天然氣'], answer: [0], explain: '太陽能可持續補充，屬再生能源。' },
                     { diff: 'challenge', q: '把鐵釘放入硫酸銅溶液，鐵釘表面會附著什麼顏色的物質？', options: ['紅褐色', '銀白色', '黑色', '黃色'], answer: [0], explain: '鐵置換出銅，附著紅褐色的銅。' },
                     { diff: 'challenge', q: '下列哪一項可以減緩山坡地的土壤流失？', options: ['種植草木', '把樹砍光', '鋪滿水泥', '挖深溝'], answer: [0], explain: '植物根系能抓住土壤，減少沖刷。' }
                 ],
                 multiple: [
-                    { diff: 'basic', q: '下列哪些屬於生物？(可多選)', options: ['榕樹', '蝴蝶', '石頭', '蚯蚓'], answer: [0, 1, 3], explain: '石頭沒有生命現象，不是生物。' },
+                    { diff: 'basic', q: '下列哪些東西會長大、需要養分，也會繁殖下一代？(可多選)', options: ['榕樹', '蝴蝶', '石頭', '蚯蚓'], answer: [0, 1, 3], explain: '這題要求學生用「生命現象」的三個判準（生長、需要養分、繁殖）逐項檢查，而不是憑「看起來會動」判斷。石頭不會長大也不需要養分。' },
                     { diff: 'basic', q: '下列哪些是可回收的資源？(可多選)', options: ['寶特瓶', '鐵罐', '紙箱', '用過的衛生紙'], answer: [0, 1, 2], explain: '用過的衛生紙因衛生與纖維問題不可回收。' },
                     { diff: 'pro', q: '下列哪些方法可以節約用水？(可多選)', options: ['淋浴取代泡澡', '隨手關緊水龍頭', '用洗米水澆花', '水龍頭一直開著刷牙'], answer: [0, 1, 2], explain: '前三項都能減少用水。' },
                     { diff: 'pro', q: '下列哪些屬於力的作用？(可多選)', options: ['推門', '拉橡皮筋', '踢球', '看電視'], answer: [0, 1, 2], explain: '前三者都施力於物體；看電視沒有施力。' },
@@ -524,7 +546,7 @@ function buildChinese() {
                     { diff: 'challenge', q: 'Choose the correct question form:', options: ['Where did you go last night?', 'Where you did go last night?', 'Where did you went last night?', 'Where do you went last night?'], answer: [0], explain: 'Wh- + did + subject + base verb.' }
                 ],
                 multiple: [
-                    { diff: 'basic', q: 'Select all the colors.', options: ['red', 'blue', 'seven', 'green'], answer: [0, 1, 3], explain: '"Seven" is a number, not a color.' },
+                    { diff: 'basic', q: 'Look at the picture words below. Select all the words that NAME A COLOUR.', options: ['red', 'blue', 'seven', 'green'], answer: [0, 1, 3], explain: 'Red, blue and green name colours. "Seven" is a number word, so it cannot be a colour — the distractor tests whether students confuse number words with colour words.' },
                     { diff: 'basic', q: 'Select all the days of the week.', options: ['Monday', 'Friday', 'Winter', 'Sunday'], answer: [0, 1, 3], explain: '"Winter" is a season.' },
                     { diff: 'pro', q: 'Select all the sentences in the past tense.', options: ['I visited my grandmother.', 'She was tired.', 'They are eating.', 'We watched a movie.'], answer: [0, 1, 3], explain: 'The third sentence is present continuous.' },
                     { diff: 'pro', q: 'Select all the correct plurals.', options: ['boxes', 'mice', 'sheeps', 'children'], answer: [0, 1, 3], explain: 'The plural of "sheep" is "sheep".' },
@@ -683,7 +705,7 @@ function buildChinese() {
                 ],
                 multiple: [
                     { diff: 'basic', q: '下列哪些是細胞的構造？(可多選)', options: ['細胞膜', '細胞核', '細胞質', '岩石'], answer: [0, 1, 2], explain: '岩石不是細胞構造。', dom: 'life' },
-                    { diff: 'basic', q: '下列哪些是可再生能源？(可多選)', options: ['太陽能', '風力', '水力', '石油'], answer: [0, 1, 2], explain: '石油是化石燃料，用盡難以短期補充。' },
+                    { diff: 'basic', q: '下列哪些能源在人類使用的時間尺度內可以不斷補充？(可多選)', options: ['太陽能', '風力', '水力', '石油'], answer: [0, 1, 2], explain: '這題不問「哪個是再生能源」這個名詞，而是問「能不能不斷補充」這個判準。太陽、風、水會持續自然補充；石油是化石燃料，用完短期內無法再生。' },
                     { diff: 'pro', q: '下列哪些因素會影響反應速率？(可多選)', options: ['溫度', '濃度', '接觸面積', '容器的顏色'], answer: [0, 1, 2], explain: '容器顏色不影響化學反應速率。' },
                     { diff: 'pro', q: '關於生態系，下列哪些敘述正確？(可多選)', options: ['生產者能行光合作用', '消費者直接或間接依賴生產者', '分解者分解遺體與排泄物', '能量循環使用不會散失'], answer: [0, 1, 2], explain: '能量會以熱的形式散失，不會完全循環。', dom: 'life' },
                     { diff: 'challenge', q: '下列哪些是「慣性」的例子？(可多選)', options: ['公車突然煞車時乘客前傾', '用力甩動傘上的水滴', '靜止的球被踢後滾動', '石頭沉入水中'], answer: [0, 1], explain: '後兩者與力及浮力有關，不是慣性。' },
@@ -818,7 +840,7 @@ function buildScience() {
             { diff: 'basic', q: '太陽是地球上光和熱的主要來源。', options: ['是', '非'], answer: [0], explain: '太陽提供地球主要的能量來源。' },
             { diff: 'pro', q: '鐵釘生鏽是物理變化，因為鐵還是鐵。', options: ['是', '非'], answer: [1], explain: '生鏽產生氧化鐵，是化學變化。' },
             { diff: 'pro', q: '月相的變化是因為月球繞地球公轉所造成的。', options: ['是', '非'], answer: [0], explain: '月球繞地球公轉，使我們看到被太陽照亮的部分不同，形成月相變化。' },
-            { diff: 'pro', q: '聲音可以在真空中傳播。', options: ['是', '非'], answer: [1], explain: '聲音需要介質傳播，真空中無法傳聲。' },
+            { diff: 'pro', q: '在月球上（沒有空氣）敲響的鐘，站在旁邊的人會聽不到鐘聲。', options: ['是', '非'], answer: [0], explain: '聲音要靠空氣或其他東西才能傳出去。月球上沒有空氣，鐘雖然在振動，聲音卻傳不到人的耳朵。' },
             { diff: 'challenge', q: '質量守恆定律是指化學反應前後，物質的總質量不變。', options: ['是', '非'], answer: [0], explain: '化學反應前後原子種類與數目不變，故質量守恆。' },
             // 生命科學題（增加 life 域題量，供國中分科試卷）
             { diff: 'basic', q: '植物的種子發芽需要水分、空氣與適宜的溫度。', options: ['是', '非'], answer: [0], explain: '種子發芽需要水分、空氣與適當溫度。' },
@@ -827,7 +849,7 @@ function buildScience() {
         const single = [
             { diff: 'basic', q: '下列哪一種動物是昆蟲？', options: ['蝴蝶', '蜘蛛', '蚯蚓', '蝸牛'], answer: [0], explain: '昆蟲有六隻腳、身體分三節，蝴蝶符合；蜘蛛有八隻腳。' },
             { diff: 'basic', q: '植物製造養分需要下列哪一項？', options: ['陽光', '黑暗', '鹽水', '沙子'], answer: [0], explain: '光合作用需要陽光、水和二氧化碳。' },
-            { diff: 'basic', q: '下列哪一種是天氣現象？', options: ['下雨', '地震', '火山爆發', '潮汐'], answer: [0], explain: '下雨是大氣現象；其餘屬於地質或天文現象。' },
+            { diff: 'basic', q: '早上出門時下雨，中午太陽出來，下午又開始下雨。這是描述下列哪一項？', options: ['天氣', '氣候', '地形', '季節'], answer: [0], explain: '一天之內一下下雨、一下出太陽，是「天氣」在變；氣候是很多年平均下來的狀況，不會一天改好幾次。' },
             { diff: 'pro', q: '下列哪一項屬於「化學變化」？', options: ['木材燃燒', '水結成冰', '糖溶於水', '玻璃破碎'], answer: [0], explain: '燃燒產生新物質，屬化學變化；其餘僅狀態或形狀改變。' },
             { diff: 'pro', q: '在等高線地形圖上，等高線越密集代表什麼？', options: ['坡度越陡', '地勢越平', '海拔越低', '河流越長'], answer: [0], explain: '等高線密集表示高度變化劇烈，坡度陡。' },
             { diff: 'pro', q: '下列哪一項是「可再生能源」？', options: ['太陽能', '煤', '石油', '天然氣'], answer: [0], explain: '太陽能可持續補充，屬可再生能源；化石燃料則會耗竭。' },
@@ -849,7 +871,7 @@ function buildScience() {
             { diff: 'challenge', q: '下列哪些是可再生能源？(可多選)', options: ['太陽能', '風能', '水力', '煤'], answer: [0, 1, 2], explain: '太陽能、風能、水力可持續補充；煤為化石燃料。' },
             { diff: 'challenge', q: '下列哪些屬於導電體？(可多選)', options: ['銅線', '鐵釘', '橡膠', '石墨'], answer: [0, 1, 3], explain: '銅、鐵、石墨可導電；橡膠是絕緣體。' },
             // 生命科學題（供國中分科試卷，dom=life）
-            { diff: 'basic', q: '下列哪些屬於生物？(可多選)', options: ['青苔', '蝸牛', '蜜蜂', '玻璃珠'], answer: [0, 1, 2], explain: '青苔、蝸牛、蜜蜂皆有生命現象；玻璃珠無生命。' },
+            { diff: 'basic', q: '下列哪些選項會生出下一代？(可多選)', options: ['青苔', '蝸牛', '蜜蜂', '玻璃珠'], answer: [0, 1, 2], explain: '青苔會產生孢子、蝸牛與蜜蜂會產卵，三者都能生出下一代；玻璃珠是人造的東西，不會生出小玻璃珠。這題只問「能不能繁殖」這一項生命現象。' },
             { diff: 'pro', q: '下列哪些是動物的特徵？(可多選)', options: ['會生長', '需要養分', '會繁殖', '有固定不變的形狀'], answer: [0, 1, 2], explain: '生長、取食與繁殖是生物共同特徵；形狀固定不變不是生命現象。' }
         ];
         const sciTfExtra = [
@@ -1000,7 +1022,7 @@ function buildEnglish() {
         ];
         const multiple = [
             { diff: 'basic', q: 'Select all the words that are SYNONYMS of "big".', options: ['Large', 'Huge', 'Enormous', 'Tiny'], answer: [0, 1, 2], explain: 'Large, huge, enormous mean big; tiny means small.' },
-            { diff: 'basic', q: 'Select all the colors.', options: ['Red', 'Blue', 'Table', 'Green'], answer: [0, 1, 3], explain: 'Red, blue, green are colors; table is an object.' },
+            { diff: 'basic', q: 'Select all the words below that we use to describe the COLOUR of something.', options: ['Red', 'Blue', 'Table', 'Green'], answer: [0, 1, 3], explain: 'Red, blue and green describe colour; "table" names an object, so it cannot describe colour. The distractor tests whether a student sorts words by what they DO in a sentence instead of by the picture they bring to mind.' },
             { diff: 'pro', q: 'Select all the correct past tense forms.', options: ['went', 'ate', 'buyed', 'saw'], answer: [0, 1, 3], explain: 'Buy → bought, not "buyed".' },
             { diff: 'pro', q: 'Select all the words that are verbs.', options: ['run', 'jump', 'happy', 'sing'], answer: [0, 1, 3], explain: 'Run, jump, sing are verbs; happy is an adjective.' },
             { diff: 'pro', q: 'Select all the sentences in the present perfect tense.', options: ['I have finished my homework.', 'She has gone home.', 'They are playing.', 'We have seen that movie.'], answer: [0, 1, 3], explain: 'Present perfect = have/has + past participle.' },
@@ -1106,6 +1128,83 @@ Object.entries(bank).forEach(([subj, byGrade]) => Object.entries(byGrade).forEac
 if (longViolations.length) {
     console.error('長題契約失敗（題幹未達年段門檻）：');
     longViolations.slice(0, 20).forEach(v => console.error('  ' + v));
+    process.exit(1);
+}
+
+// ------------------------------------------------- 長題契約（二）：難度與供給
+// 上面那條只管「長題夠不夠長」，這裡管另外兩件會靜靜壞掉的事：
+//
+//   1. **長題不能掛在 basic 上**。長題是「多花時間讀」的題，掛 basic 會讓
+//      低難度格被長題佔走，難度比例就失真——而且 basic 是卷子的主體，
+//      一段閱讀材料擠進去等於逼所有學生都多花時間讀。
+//   2. **每一格（科, 年段, 題型）要供得起該型的名額**。名額由 index.html 的
+//      longPerType 決定：總 1 題給 single、總 2 題給 tf+single、總 3 題再加
+//      multiple，也就是每個題型每份卷子最多吃 1 題長題。同一格若只有 1 題，
+//      連續考兩次就會抽到同一段——那正是使用者抱怨的「每次考都一樣」。
+//
+// 這條原本只寫在 C:\Temp\zyver 的臨時腳本裡（long-gate-probe.mjs），不在版控，
+// 這裡把它搬進建置流程，讓它每次 build 都跑。
+const LONG_DIFF_OK = new Set(['pro', 'challenge']);
+const longDiffViolations = [];
+// 每格至少要撐得起幾份不重複的卷子：longPerType 每型上限 1，所以需求就是 1；
+// 要求 3 是「連考三次不撞同一段」的餘裕。
+const LONG_PER_CELL_MIN = 2;
+const longThin = [];
+Object.entries(bank).forEach(([subj, byGrade]) => Object.entries(byGrade).forEach(([g, byType]) => {
+    ['tf', 'single', 'multiple'].forEach(type => {
+        const items = (byType[type] || []).filter(it => !it.tpl);
+        const longs = items.filter(it => it.long);
+        longs.forEach(it => {
+            if (!LONG_DIFF_OK.has(it.diff)) {
+                longDiffViolations.push(`${subj}|${g}|${type} long:true 卻是 diff=${it.diff}：${String(it.q).slice(0, 30)}`);
+            }
+        });
+        // 只有本來就有長題的科／格才管供給：數學是模板生成的長題（tpl），
+        // 英文以外的科由難度池決定，硬性要求會在還沒寫題的格上整片紅。
+        // 這裡只檢查「已經有長題、但數量不足」的格——那才是真的缺口。
+        if (longs.length > 0 && longs.length < LONG_PER_CELL_MIN) {
+            longThin.push(`${subj}|${g}|${type} 只有 ${longs.length} 題長題（每型一捲吃 1 題，建議 ≥${LONG_PER_CELL_MIN}）`);
+        }
+    });
+}));
+if (longDiffViolations.length) {
+    console.error('長題契約失敗（長題不得掛 basic）：');
+    longDiffViolations.slice(0, 20).forEach(v => console.error('  ' + v));
+    process.exit(1);
+}
+if (longThin.length) {
+    console.error('長題供給不足（同一格連續考會撞到同一段）：');
+    longThin.slice(0, 20).forEach(v => console.error('  ' + v));
+    process.exit(1);
+}
+
+// ------------------------------------------------------------- dom 分類契約
+// 國中分科的池子是靠 `dom` 切出來的（science → life/matter、social →
+// histgeo/civics）。dom 沒標好，切成兩半後兩邊都會假性不足，卷子就補不齊。
+// 這裡只驗「已標的 dom 值在允許集合內」——分類錯（life 標成 matter）沒有
+// 辦法用程式判定，那是作者的事；但拼錯字或漏標會在這裡擋下來。
+const DOM_OK = {
+    science: new Set(['life', 'matter']),
+    social: new Set(['histgeo', 'civics']),
+};
+const domViolations = [];
+Object.entries(bank).forEach(([subj, byGrade]) => {
+    const allowed = DOM_OK[subj];
+    if (!allowed) return;
+    Object.entries(byGrade).forEach(([g, byType]) => {
+        ['tf', 'single', 'multiple'].forEach(type => {
+            (byType[type] || []).forEach(it => {
+                if (it.tpl) return;                       // 模板題不進分科池
+                if (!allowed.has(it.dom)) {
+                    domViolations.push(`${subj}|${g}|${type} dom=${JSON.stringify(it.dom)}（允許：${[...allowed].join('/')}）：${String(it.q).slice(0, 30)}`);
+                }
+            });
+        });
+    });
+});
+if (domViolations.length) {
+    console.error('dom 契約失敗（分科池的分類值不在允許集合內）：');
+    domViolations.slice(0, 20).forEach(v => console.error('  ' + v));
     process.exit(1);
 }
 
